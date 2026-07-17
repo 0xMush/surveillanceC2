@@ -1,0 +1,17 @@
+[
+    {
+        "uuid": "141a3360-2893-4d01-a359-9a05ad5514f7",
+        "nickname": "",
+        "disconnected_at": null,
+        "ip": "192.168.12.128",
+        "hostname": "kali",
+        "os": "Linux 6.16.8+kali-amd64",
+        "username": "kali",
+        "privilege": "user",
+        "pid": 118563,
+        "last_seen": "2026-07-17 19:38:04",
+        "first_seen": "2026-07-17 18:42:12",
+        "status": "active",
+        "notes": "dhttdh"
+    }
+]

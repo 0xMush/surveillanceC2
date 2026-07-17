@@ -1,0 +1,18 @@
+[
+    {
+        "id": 1,
+        "task_id": 1,
+        "beacon_uuid": "141a3360-2893-4d01-a359-9a05ad5514f7",
+        "output": "kali",
+        "status": "completed",
+        "created_at": "2026-07-17 18:43:58"
+    },
+    {
+        "id": 7,
+        "task_id": 8,
+        "beacon_uuid": "141a3360-2893-4d01-a359-9a05ad5514f7",
+        "output": "[MEDIA] 4\nScreenshot captured and uploaded (media #4)",
+        "status": "completed",
+        "created_at": "2026-07-17 18:58:19"
+    }
+]
