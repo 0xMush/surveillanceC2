@@ -1,0 +1,20 @@
+RewriteEngine On
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteRule ^data/ - [F,L]
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^handlers/ - [F,L]
+    RewriteRule ^\.env - [F,L]
+    RewriteRule ^\.htaccess - [F,L]
+</IfModule>
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [L]

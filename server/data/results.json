@@ -1,18 +1,1 @@
-[
-    {
-        "id": 1,
-        "task_id": 1,
-        "beacon_uuid": "141a3360-2893-4d01-a359-9a05ad5514f7",
-        "output": "kali",
-        "status": "completed",
-        "created_at": "2026-07-17 18:43:58"
-    },
-    {
-        "id": 7,
-        "task_id": 8,
-        "beacon_uuid": "141a3360-2893-4d01-a359-9a05ad5514f7",
-        "output": "[MEDIA] 4\nScreenshot captured and uploaded (media #4)",
-        "status": "completed",
-        "created_at": "2026-07-17 18:58:19"
-    }
-]
+[{"task_id":3,"beacon_uuid":"e3b44271-ee7d-415c-87c4-8a1fe9f2df59","output":"\/home\/kali\/C2","status":"completed","created_at":"2026-07-19 10:53:08","id":1},{"task_id":4,"beacon_uuid":"3877565a-3de8-41ce-be76-6007938bbb1e","output":"\/home\/kali\/C2\n","status":"completed","created_at":"2026-07-19 10:53:21","id":2},{"task_id":5,"beacon_uuid":"3877565a-3de8-41ce-be76-6007938bbb1e","output":"[ERROR] Command 'screenshot' returned non-zero exit status 127.","status":"completed","created_at":"2026-07-19 10:53:21","id":3},{"task_id":6,"beacon_uuid":"3877565a-3de8-41ce-be76-6007938bbb1e","output":"[ERROR] Command 'screenshot' returned non-zero exit status 127.","status":"completed","created_at":"2026-07-19 10:53:34","id":4}]

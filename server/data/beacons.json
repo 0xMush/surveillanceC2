@@ -1,17 +1,1 @@
-[
-    {
-        "uuid": "141a3360-2893-4d01-a359-9a05ad5514f7",
-        "nickname": "",
-        "disconnected_at": "2026-07-18 12:32:52",
-        "ip": "192.168.12.128",
-        "hostname": "kali",
-        "os": "Linux 6.16.8+kali-amd64",
-        "username": "kali",
-        "privilege": "user",
-        "pid": 118563,
-        "last_seen": "2026-07-19 09:10:00",
-        "first_seen": "2026-07-17 18:42:12",
-        "status": "active",
-        "notes": "dhttdh"
-    }
-]
+[{"uuid":"141a3360-2893-4d01-a359-9a05ad5514f7","nickname":"","disconnected_at":"2026-07-18 12:32:52","ip":"192.168.12.128","hostname":"kali","os":"Linux 6.16.8+kali-amd64","username":"kali","privilege":"user","pid":118563,"last_seen":"2026-07-19 09:10:00","first_seen":"2026-07-17 18:42:12","status":"active","notes":"dhttdh"},{"uuid":"e3b44271-ee7d-415c-87c4-8a1fe9f2df59","nickname":"","ip":"127.0.0.1","hostname":"kali","os":"Linux 6.16.8+kali-amd64","username":"kali","privilege":"user","pid":183590,"status":"active","notes":"","disconnected_at":null,"first_seen":"2026-07-19 10:22:32","last_seen":"2026-07-19 10:54:15","id":1,"os_family":"linux"},{"uuid":"test-111","nickname":"","ip":"10.0.0.1","hostname":"testbox","os":"Linux","os_family":"linux","username":"test","privilege":"user","pid":1234,"status":"active","notes":"","disconnected_at":null,"first_seen":"2026-07-19 10:30:03","last_seen":"2026-07-19 10:30:03","id":2},{"uuid":"test-beacon-1","nickname":"","ip":"10.0.0.1","hostname":"testbox","os":"Linux","os_family":"linux","username":"test","privilege":"user","pid":1234,"status":"active","notes":"hello world","disconnected_at":null,"first_seen":"2026-07-19 10:42:32","last_seen":"2026-07-19 10:42:32","id":3},{"uuid":"test-vm-1","nickname":"","ip":"10.0.0.2","hostname":"victim-pc","os":"Windows 10","os_family":"windows","username":"admin","privilege":"admin","pid":4567,"status":"active","notes":"test notes","disconnected_at":null,"first_seen":"2026-07-19 10:45:30","last_seen":"2026-07-19 10:45:30","id":4},{"uuid":"3877565a-3de8-41ce-be76-6007938bbb1e","nickname":"","ip":"0.0.0.0","hostname":"kali","os":"Linux 6.16.8+kali-amd64","os_family":"linux","username":"kali","privilege":"user","pid":207873,"status":"active","notes":"","disconnected_at":null,"first_seen":"2026-07-19 10:52:58","last_seen":"2026-07-19 10:53:51","id":5}]
