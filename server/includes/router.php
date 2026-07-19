@@ -34,6 +34,7 @@ function routeRequest(): void {
         case 'files': require_once $h . 'file.php'; handleListFiles(); break;
         case 'browse_cache': require_once $h . 'filebrowser.php'; handleBrowseCache(); break;
         case 'file_delete': require_once $h . 'filebrowser.php'; handleFileDelete(); break;
+        case 'delete_upload': require_once $h . 'file.php'; handleDeleteUpload(); break;
         case 'browse_req': require_once $h . 'filebrowser.php'; handleBrowseRequest(); break;
         case 'ls_device': require_once $h . 'device.php'; handleLsDevice(); break;
         case 'device_read': require_once $h . 'device.php'; handleDeviceRead(); break;

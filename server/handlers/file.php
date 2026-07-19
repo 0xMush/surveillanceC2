@@ -11,7 +11,8 @@ function handleFile(): void {
             if ($_FILES['file']['error'] !== UPLOAD_ERR_OK) jsonError('Upload failed', 500);
             $f = $_FILES['file'];
             $name = preg_replace('/^.*[\\\\\\/]/', '', basename($f['name']));
-            $dest = UPLOAD_DIR . '/' . time() . '_' . $name;
+            $dir = ensureDeviceDir($uuid) . '/files';
+            $dest = $dir . '/' . $name;
             $fi = finfo_open(FILEINFO_MIME_TYPE);
             $mime = finfo_file($fi, $f['tmp_name']);
             finfo_close($fi);
@@ -28,7 +29,8 @@ function handleFile(): void {
             $data = $input['data'] ?? '';
             if (empty($uuid) || empty($name) || empty($data)) jsonError('Missing fields');
             $raw = base64_decode($data);
-            $dest = UPLOAD_DIR . '/' . time() . '_' . $name;
+            $dir = ensureDeviceDir($uuid) . '/files';
+            $dest = $dir . '/' . $name;
             file_put_contents($dest, $raw);
             $id = $db->insert('files', ['beacon_uuid' => $uuid, 'filename' => $name, 'path' => $dest, 'size' => strlen($raw), 'created_at' => now()]);
             jsonOut(['id' => $id, 'status' => 'uploaded'], 201);
@@ -45,6 +47,21 @@ function handleFile(): void {
         }
         handleListFiles();
     } else { jsonError('Method not allowed', 405); }
+}
+
+function handleDeleteUpload(): void {
+    requireMethod('POST');
+    $input = jsonInput();
+    $type = $input['type'] ?? ''; // 'file' or 'media'
+    $id = (int)($input['id'] ?? 0);
+    if (empty($type) || empty($id)) jsonError('Missing type or id');
+    $db = DB::connect();
+    $table = $type === 'media' ? 'media' : 'files';
+    $item = $db->findOne($table, 'id', $id);
+    if (!$item) jsonError('Not found', 404);
+    if (is_file($item['path'])) @unlink($item['path']);
+    $db->delete($table, 'id', $id);
+    jsonOut(['status' => 'deleted']);
 }
 
 function handleListFiles(): void {

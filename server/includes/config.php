@@ -7,6 +7,7 @@ define('DATA_DIR', BASE_DIR . '/data');
 define('UPLOAD_DIR', BASE_DIR . '/uploads');
 define('MEDIA_DIR', BASE_DIR . '/uploads/media');
 define('PHOTO_DIR', BASE_DIR . '/uploads/persons');
+define('DEVICES_DIR', BASE_DIR . '/uploads/devices');
 define('STORAGE_DIR', BASE_DIR . '/data');
 
 $envFile = BASE_DIR . '/.env';
@@ -26,7 +27,7 @@ if (is_file($envFile)) {
 
 define('BEACON_SECRET', $ENV['BEACON_SECRET'] ?? '');
 
-foreach ([DATA_DIR, UPLOAD_DIR, MEDIA_DIR, PHOTO_DIR] as $dir) {
+foreach ([DATA_DIR, UPLOAD_DIR, MEDIA_DIR, PHOTO_DIR, DEVICES_DIR] as $dir) {
     is_dir($dir) || mkdir($dir, 0755, true);
 }
 

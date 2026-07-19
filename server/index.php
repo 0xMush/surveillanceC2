@@ -28,7 +28,6 @@ if (!isAuthenticated()) {
         <span style="color:var(--amber)"><span id="s-pend">0</span> pend</span>
         <span style="color:var(--cyan)"><span id="s-done">0</span> done</span>
         <span><button id="hm-tg" class="btn btn-xs btn-hm" onclick="toggleHumans()">&#128100; Humans</button></span>
-        <span><button class="btn btn-xs btn-gh" onclick="showPayloadTab()">&#9889; Payload</button></span>
         <span><button class="btn btn-xs btn-gh" onclick="logout()">&#128682; Logout</button></span>
     </div>
 </div>
@@ -73,6 +72,8 @@ if (!isAuthenticated()) {
                         <button class="btn btn-xs btn-b" onclick="qc('screenshot')">&#128247; screenshot</button>
                         <button class="btn btn-xs btn-b" onclick="qc('cam')">&#128248; cam</button>
                         <button class="btn btn-xs btn-gh" onclick="qc('persist')">persist</button>
+                        <button class="btn btn-xs btn-gh" onclick="qc('run')">&#9654; run</button>
+                        <button class="btn btn-xs btn-gh" onclick="qc('download')">&#11015; dl</button>
                         <button class="btn btn-xs btn-r" onclick="if(confirm('Destroy?'))qc('selfdestruct')">&#128128; kill</button>
                         <button class="btn btn-xs btn-b" onclick="fmToggle()">&#128193; FM</button>
                         <button class="btn btn-xs btn-gh" onclick="dfToggle()">&#128451; DF</button>
@@ -128,7 +129,6 @@ if (!isAuthenticated()) {
 
 <div class="modal" id="mim" onclick="this.classList.remove('on')"><div class="modal-c"><img id="mim-s"></div></div>
 <div class="modal" id="pm"><div class="modal-c" style="max-width:500px;width:90vw;padding:0" id="pm-c"></div></div>
-<div class="modal" id="pym"><div class="modal-c" style="max-width:800px;width:95vw;padding:0;max-height:90vh;display:flex;flex-direction:column" id="pym-c"></div></div>
 <div class="toast" id="toast"></div>
 
 <script src="assets/panel.js"></script>

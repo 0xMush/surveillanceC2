@@ -63,18 +63,16 @@ function handleDeviceRead(): void {
         header('Content-Type: text/plain; charset=utf-8');
         echo $b['notes'] ?? ''; exit;
     }
-    $db = DB::connect();
+    $dd = deviceDir($uuid);
     foreach (['files/','media/'] as $prefix) {
         if (str_starts_with($path, $prefix)) {
             $name = substr($path, strlen($prefix));
-            $table = $prefix === 'files/' ? 'files' : 'media';
-            foreach ($db->all($table) as $r) {
-                if (($r['beacon_uuid']??'') === $uuid && ($r['filename']??'') === $name) {
-                    $ext = strtolower(pathinfo($r['filename'], PATHINFO_EXTENSION));
-                    $types = ['jpg'=>'image/jpeg','jpeg'=>'image/jpeg','png'=>'image/png','gif'=>'image/gif','webp'=>'image/webp','mp4'=>'video/mp4','webm'=>'video/webm','pdf'=>'application/pdf'];
-                    header('Content-Type: ' . ($types[$ext] ?? 'text/plain; charset=utf-8'));
-                    readfile($r['path']); exit;
-                }
+            $fp = $dd . '/' . $prefix . $name;
+            if (is_file($fp)) {
+                $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                $types = ['jpg'=>'image/jpeg','jpeg'=>'image/jpeg','png'=>'image/png','gif'=>'image/gif','webp'=>'image/webp','mp4'=>'video/mp4','webm'=>'video/webm','pdf'=>'application/pdf'];
+                header('Content-Type: ' . ($types[$ext] ?? 'application/octet-stream'));
+                readfile($fp); exit;
             }
         }
     }
@@ -124,5 +122,12 @@ function handleRemoveDevice(): void {
         $db->update('persons', 'id', $p['id'], ['linked_devices' => json_encode($devs)]);
     }
     $db->delete('beacons', 'uuid', $uuid);
+    $dd = deviceDir($uuid);
+    if (is_dir($dd)) {
+        $it = new RecursiveDirectoryIterator($dd, RecursiveDirectoryIterator::SKIP_DOTS);
+        $fi = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($fi as $f) { $f->isDir() ? rmdir($f->getRealPath()) : unlink($f->getRealPath()); }
+        rmdir($dd);
+    }
     jsonOut(['status' => 'ok']);
 }

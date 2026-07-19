@@ -26,7 +26,7 @@ function handleFileDelete(): void {
     $input = jsonInput();
     $uuid = $input['beacon_uuid'] ?? ''; $path = $input['path'] ?? '';
     if (empty($uuid) || empty($path)) jsonError('Missing fields');
-    $id = DB::connect()->insert('tasks', ['beacon_uuid'=>$uuid,'command'=>'shell rm -rf '.escapeshellarg($path),'status'=>'pending','created_at'=>now(),'assigned_at'=>null,'completed_at'=>null]);
+    $id = DB::connect()->insert('tasks', ['beacon_uuid'=>$uuid,'command'=>'delete '.$path,'status'=>'pending','created_at'=>now(),'assigned_at'=>null,'completed_at'=>null]);
     jsonOut(['task_id' => $id, 'status' => 'created']);
 }
 

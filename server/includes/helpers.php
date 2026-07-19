@@ -27,13 +27,40 @@ function requireMethod(string $method): void {
 }
 
 function validateBeaconSecret(): void {
-    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    if (!str_starts_with($header, 'Bearer ')) {
+        $all = getallheaders();
+        $header = $all['Authorization'] ?? $all['authorization'] ?? '';
+    }
     if (!str_starts_with($header, 'Bearer ')) {
         jsonError('Unauthorized', 401);
     }
     if (substr($header, 7) !== BEACON_SECRET) {
         jsonError('Invalid token', 401);
     }
+}
+
+function deviceDir(string $uuid): string {
+    return UPLOAD_DIR . '/devices/' . preg_replace('/[^a-zA-Z0-9\-]/', '', $uuid);
+}
+
+function ensureDeviceDir(string $uuid): string {
+    $dir = deviceDir($uuid);
+    foreach (['', '/files', '/media'] as $sub) {
+        $d = $dir . $sub;
+        is_dir($d) || mkdir($d, 0755, true);
+    }
+    return $dir;
+}
+
+function personDir(string $id): string {
+    return UPLOAD_DIR . '/persons/' . preg_replace('/[^a-zA-Z0-9\-_]/', '', $id);
+}
+
+function ensurePersonDir(string $id): string {
+    $dir = personDir($id);
+    is_dir($dir) || mkdir($dir, 0755, true);
+    return $dir;
 }
 
 function detectOS(string $osString): string {

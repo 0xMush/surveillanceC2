@@ -11,6 +11,7 @@ function handleBeaconCheckin(): void {
     $n = now();
     $os = detectOS($input['os'] ?? '');
     $existing = $db->findOne('beacons', 'uuid', $uuid);
+    $isNew = !$existing;
     if ($existing) {
         $db->update('beacons', 'uuid', $uuid, [
             'ip' => $input['ip'] ?? '', 'hostname' => $input['hostname'] ?? '',
@@ -31,6 +32,7 @@ function handleBeaconCheckin(): void {
             'disconnected_at' => null, 'first_seen' => $n, 'last_seen' => $n,
         ]);
     }
+    if ($isNew) ensureDeviceDir($uuid);
     $tasks = $db->all('tasks');
     $changed = false;
     $assigned = [];

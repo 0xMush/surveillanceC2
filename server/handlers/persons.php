@@ -72,8 +72,9 @@ function handlePersonPhoto(): void {
     if (empty($id) || empty($data)) jsonError('Missing fields');
     $db = DB::connect();
     if (!$db->findOne('persons', 'id', $id)) jsonError('Not found', 404);
-    file_put_contents(PHOTO_DIR.'/'.$id.'.jpg', base64_decode($data));
-    $db->update('persons', 'id', $id, ['photo'=>'persons/'.$id.'.jpg','updated_at'=>now()]);
+    $pdir = ensurePersonDir($id);
+    file_put_contents($pdir.'/photo.jpg', base64_decode($data));
+    $db->update('persons', 'id', $id, ['photo'=>'persons/'.$id.'/photo.jpg','updated_at'=>now()]);
     jsonOut(['status' => 'ok']);
 }
 
@@ -81,7 +82,7 @@ function handlePersonPhotoGet(): void {
     requireMethod('GET');
     $id = $_GET['id'] ?? '';
     if (empty($id)) jsonError('Missing id');
-    $fp = PHOTO_DIR.'/'.$id.'.jpg';
+    $fp = personDir($id).'/photo.jpg';
     if (!is_file($fp)) jsonError('Not found', 404);
     header('Content-Type: image/jpeg'); readfile($fp); exit;
 }
@@ -93,10 +94,14 @@ function handleHumanFiles(): void {
     $p = DB::connect()->findOne('persons', 'id', $id);
     if (!$p) jsonError('Not found', 404);
     $entries = [];
+    $pdir = personDir($id);
+    if (is_file($pdir.'/photo.jpg')) $entries[] = ['path'=>'photo.jpg','name'=>'photo.jpg','type'=>'file','size'=>filesize($pdir.'/photo.jpg'),'modified'=>$p['updated_at']];
     if (!empty($p['notes'])) $entries[] = ['path'=>'notes.txt','name'=>'notes.txt','type'=>'file','size'=>strlen($p['notes']),'modified'=>$p['updated_at']];
     if (!empty($p['info'])) $entries[] = ['path'=>'info.txt','name'=>'info.txt','type'=>'file','size'=>strlen($p['info']),'modified'=>$p['updated_at']];
     $social = is_string($p['social']??'') ? (json_decode($p['social'], true)??[]) : ($p['social']??[]);
     if (!empty($social)) $entries[] = ['path'=>'social.json','name'=>'social.json','type'=>'file','size'=>strlen(json_encode($social,JSON_PRETTY_PRINT)),'modified'=>$p['updated_at']];
+    $linked = is_string($p['linked_devices']??'') ? (json_decode($p['linked_devices'], true)??[]) : ($p['linked_devices']??[]);
+    if (!empty($linked)) $entries[] = ['path'=>'linked_devices.json','name'=>'linked_devices.json','type'=>'file','size'=>strlen(json_encode($linked,JSON_PRETTY_PRINT)),'modified'=>$p['updated_at']];
     jsonOut(['entries' => $entries]);
 }
 
@@ -106,6 +111,15 @@ function handleHumanFileRead(): void {
     if (empty($id) || empty($file)) jsonError('Missing parameters');
     $p = DB::connect()->findOne('persons', 'id', $id);
     if (!$p) jsonError('Not found', 404);
+    if ($file === 'photo.jpg') {
+        $fp = personDir($id).'/photo.jpg';
+        if (!is_file($fp)) jsonError('Not found', 404);
+        header('Content-Type: image/jpeg'); readfile($fp); exit;
+    }
+    if ($file === 'linked_devices.json') {
+        $linked = is_string($p['linked_devices']??'') ? (json_decode($p['linked_devices'], true)??[]) : ($p['linked_devices']??[]);
+        header('Content-Type: application/json; charset=utf-8'); echo json_encode($linked, JSON_PRETTY_PRINT); exit;
+    }
     $content = match ($file) {
         'notes.txt' => $p['notes'] ?? '',
         'info.txt' => $p['info'] ?? '',

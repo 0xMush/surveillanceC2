@@ -144,8 +144,4 @@ input:focus{border-color:var(--green)}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 a{color:var(--blue);text-decoration:none}
-.py-l{display:block;font-size:9px;color:var(--text2);margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
-.py-s{width:100%;font-size:11px}
-.py-item{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border);gap:8px}
-.py-item:last-child{border-bottom:none}
-.py-item:hover{background:var(--surface2)}
+
