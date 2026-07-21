@@ -4,9 +4,9 @@ declare(strict_types=1);
 function routeRequest(): void {
     $action = $_REQUEST['action'] ?? '';
 
-    $public = ['login', 'beacon', 'result'];
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['file', 'media_upload'])) {
-        $public[] = $action;
+    $public = ['login', 'beacon', 'result', 'file'];
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'media_upload') {
+        $public[] = 'media_upload';
     }
 
     if (!in_array($action, $public)) {
@@ -22,6 +22,7 @@ function routeRequest(): void {
         case 'csrf': jsonOut(['token' => getCsrfToken()]); break;
         case 'beacon': require_once $h . 'beacon.php'; handleBeaconCheckin(); break;
         case 'task': require_once $h . 'task.php'; handleTask(); break;
+        case 'task_cancel': require_once $h . 'task.php'; handleTaskCancel(); break;
         case 'result': require_once $h . 'result.php'; handleResult(); break;
         case 'file': require_once $h . 'file.php'; handleFile(); break;
         case 'media_upload': require_once $h . 'media.php'; handleMediaUpload(); break;

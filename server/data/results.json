@@ -1,1 +1,1 @@
-[{"task_id":1,"beacon_uuid":"417d0bf7-3f29-4d3d-a016-ae307e79a252","output":"[-] Camera requires PowerShell 7+ or external tool. Use screenshot instead.","status":"completed","created_at":"2026-07-19 21:12:37","id":1},{"task_id":2,"beacon_uuid":"417d0bf7-3f29-4d3d-a016-ae307e79a252","output":"[-] usage: run <path> [args]","status":"completed","created_at":"2026-07-19 21:12:37","id":2},{"task_id":3,"beacon_uuid":"417d0bf7-3f29-4d3d-a016-ae307e79a252","output":"[-] usage: download <file_id> <output_path>","status":"completed","created_at":"2026-07-19 21:13:09","id":3}]
+[]

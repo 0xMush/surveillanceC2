@@ -30,12 +30,12 @@ class DB {
     }
 
     public function find(string $table, string $column, mixed $value): array {
-        return array_values(array_filter($this->load($table), fn($r) => ($r[$column] ?? null) === $value));
+        return array_values(array_filter($this->load($table), fn($r) => ($r[$column] ?? null) == $value));
     }
 
     public function findOne(string $table, string $column, mixed $value): ?array {
         foreach ($this->load($table) as $r) {
-            if (($r[$column] ?? null) === $value) return $r;
+            if (($r[$column] ?? null) == $value) return $r;
         }
         return null;
     }
@@ -44,7 +44,7 @@ class DB {
         foreach ($this->load($table) as $r) {
             $match = true;
             foreach ($conditions as $col => $val) {
-                if (($r[$col] ?? null) !== $val) { $match = false; break; }
+                if (($r[$col] ?? null) != $val) { $match = false; break; }
             }
             if ($match) return $r;
         }
@@ -54,7 +54,7 @@ class DB {
     public function findAll(string $table, array $conditions): array {
         return array_values(array_filter($this->load($table), function($r) use ($conditions) {
             foreach ($conditions as $col => $val) {
-                if (($r[$col] ?? null) !== $val) return false;
+                if (($r[$col] ?? null) != $val) return false;
             }
             return true;
         }));
@@ -76,7 +76,7 @@ class DB {
         $this->load($table);
         $count = 0;
         foreach ($this->cache[$table] as &$r) {
-            if (($r[$column] ?? null) === $value) {
+            if (($r[$column] ?? null) == $value) {
                 foreach ($data as $k => $v) $r[$k] = $v;
                 $count++;
             }
@@ -94,7 +94,7 @@ class DB {
     public function delete(string $table, string $column, mixed $value): int {
         $rows = $this->load($table);
         $before = count($rows);
-        $rows = array_values(array_filter($rows, fn($r) => ($r[$column] ?? null) !== $value));
+        $rows = array_values(array_filter($rows, fn($r) => ($r[$column] ?? null) != $value));
         $removed = $before - count($rows);
         if ($removed) {
             $this->cache[$table] = $rows;

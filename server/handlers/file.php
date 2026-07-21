@@ -38,6 +38,14 @@ function handleFile(): void {
     } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $id = (int)($_GET['id'] ?? 0);
         if ($id) {
+            // Allow bearer auth (beacon download) or session auth (panel user)
+            $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+            if (!str_starts_with($header, 'Bearer ')) {
+                $all = getallheaders();
+                $header = $all['Authorization'] ?? $all['authorization'] ?? '';
+            }
+            $bearerOk = str_starts_with($header, 'Bearer ') && substr($header, 7) === BEACON_SECRET;
+            if (!$bearerOk && !isAuthenticated()) jsonError('Authentication required', 401);
             $f = $db->findOne('files', 'id', $id);
             if (!$f) jsonError('Not found', 404);
             header('Content-Type: application/octet-stream');
@@ -45,6 +53,8 @@ function handleFile(): void {
             header('Content-Length: ' . $f['size']);
             readfile($f['path']); exit;
         }
+        // Listing requires session auth (panel user)
+        requireAuth();
         handleListFiles();
     } else { jsonError('Method not allowed', 405); }
 }

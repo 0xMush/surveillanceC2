@@ -1,0 +1,21 @@
+# Sensitive config
+.env
+
+# Operational data (JSON databases)
+data/
+
+# Uploaded files from targets
+uploads/
+
+# Device-specific data
+devices/
+
+# Human/person data
+humans/
+
+# OS junk
+Thumbs.db
+.DS_Store
+*.swp
+*.swo
+*~

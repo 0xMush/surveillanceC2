@@ -26,3 +26,12 @@ function handleListTasks(): void {
     usort($tasks, fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
     jsonOut($tasks);
 }
+
+function handleTaskCancel(): void {
+    requireMethod('POST');
+    $input = jsonInput();
+    $id = $input['id'] ?? 0;
+    if (empty($id)) jsonError('Missing task id');
+    DB::connect()->delete('tasks', 'id', $id);
+    jsonOut(['status' => 'cancelled']);
+}

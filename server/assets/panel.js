@@ -58,7 +58,7 @@ let FM_PATH = '/';
 let _refRunning = false;
 let _refTimer = null;
 
-function es(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function es(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 function tm(m, e) {
     const t = document.getElementById('toast');
@@ -83,6 +83,7 @@ function toggleHumans() {
     if (v === '1') {
         document.getElementById('psb').classList.remove('off');
         document.getElementById('hm-tg').classList.add('on');
+        loadPersons();
     }
 })();
 
@@ -112,6 +113,8 @@ let _taskCache = [];
 let _mediaCache = [];
 let _fileCache = [];
 let _personCache = [];
+let _hist = [];
+let _histIdx = -1;
 
 function buildList(beacons) {
     _beaconCache = beacons;
@@ -263,17 +266,23 @@ async function saveNotes() {
     } else { tm('Failed to save notes', 1); }
 }
 
+let _fmTimer = null;
+
 function fmToggle() {
     const card = document.getElementById('fm-card');
     card.classList.toggle('fm-on');
-    if (!card.classList.contains('fm-on')) return;
-    if (!SEL) { tm('Select a device first', 1); card.classList.remove('fm-on'); return; }
-    if (!document.getElementById('fm-in')) {
-        document.getElementById('fm-pb').innerHTML = fmPB('/') +
-            ' <input id="fm-in" value="/" onkeydown="if(event.key===\'Enter\')fmGo()" style="flex:1;min-width:60px">' +
-            ' <button class="btn btn-xs btn-gh" onclick="fmRefresh()">&#8635;</button>' +
-            ' <button class="btn btn-xs btn-b" onclick="fmUploadToTarget()">&#11015; Upload</button>';
-        document.getElementById('fm-body').innerHTML = '<div class="fm-nf">Enter a path and press Enter, or click Go.</div>';
+    if (card.classList.contains('fm-on')) {
+        if (!SEL) { tm('Select a device first', 1); card.classList.remove('fm-on'); return; }
+        if (!document.getElementById('fm-in')) {
+            document.getElementById('fm-pb').innerHTML = fmPB('/') +
+                ' <input id="fm-in" value="/" onkeydown="if(event.key===\'Enter\')fmGo()" style="flex:1;min-width:60px">' +
+                ' <button class="btn btn-xs btn-gh" onclick="fmRefresh()">&#8635;</button>' +
+                ' <button class="btn btn-xs btn-b" onclick="fmUploadToTarget()">&#11015; Upload</button>';
+            document.getElementById('fm-body').innerHTML = '<div class="fm-nf">Enter a path and press Enter, or click Go.</div>';
+        }
+        if (!_fmTimer) _fmTimer = setInterval(() => { if (SEL && FM_PATH) fmRefresh(); }, 30000);
+    } else {
+        if (_fmTimer) { clearInterval(_fmTimer); _fmTimer = null; }
     }
 }
 
@@ -324,7 +333,8 @@ async function fmNav(path) {
     document.getElementById('fm-nm').textContent = path;
     document.getElementById('fm-pb').innerHTML = fmPB(path) +
         ' <input id="fm-in" value="' + es(path) + '" onkeydown="if(event.key===\'Enter\')fmGo()" style="flex:1;min-width:60px">' +
-        ' <button class="btn btn-xs btn-gh" onclick="fmRefresh()">&#8635;</button>';
+        ' <button class="btn btn-xs btn-gh" onclick="fmRefresh()">&#8635;</button>' +
+        ' <button class="btn btn-xs btn-b" onclick="fmUploadToTarget()">&#11015; Upload</button>';
     const cached = await ApiClient.get('browse_cache', { beacon_uuid: SEL, path });
     if (cached && cached.entries) {
         fmRender(cached.entries, path);
@@ -336,7 +346,9 @@ async function fmNav(path) {
 
 function fmRefresh() {
     if (!SEL || !FM_PATH) return;
-    document.getElementById('fm-body').innerHTML = '<div class="fm-ld"><div class="sp"></div> Refreshing...</div>';
+    const body = document.getElementById('fm-body');
+    if (!body) return;
+    body.innerHTML = '<div class="fm-ld"><div class="sp"></div> Refreshing...</div>';
     fmSendBrowse(SEL, FM_PATH);
 }
 
@@ -407,7 +419,7 @@ function fmRender(entries, path) {
         if (e.type === 'file') {
             html += '<button class="btn btn-xs btn-g" onclick="event.stopPropagation();fmReadFile(\'' + es(fullPath) + '\')">Read</button>';
             html += '<button class="btn btn-xs btn-b" onclick="event.stopPropagation();fmDownload(\'' + es(fullPath) + '\',\'' + es(e.name) + '\')">DL</button>';
-            html += '<button class="btn btn-xs btn-gh" onclick="event.stopPropagation();fmRun(\'' + es(fullPath) + '\')">&#9654; Run</button>';
+
         }
         html += '<button class="btn btn-xs btn-gh" onclick="event.stopPropagation();fmProp(\'' + es(fullPath) + '\',\'' + es(e.type) + '\',' + (e.size || 0) + ',\'' + es(e.perms || '') + '\',\'' + es(e.modified || '') + '\')">Info</button>';
         html += '<button class="btn btn-xs btn-r" onclick="event.stopPropagation();if(confirm(\'Delete ' + es(e.name) + '?\'))fmDelete(\'' + es(fullPath) + '\')">Del</button>';
@@ -475,16 +487,6 @@ async function fmDownload(path, name) {
     } else { tA(SEL, 'r', 'Failed to send upload command'); }
 }
 
-async function fmRun(path) {
-    if (!SEL) return;
-    tA(SEL, 'g', '$ run ' + path);
-    tA(SEL, 's', 'Running...');
-    const r = await ApiClient.post('task', { beacon_uuid: SEL, command: 'run ' + path });
-    if (r && r.status === 'created') {
-        fmPollAction(SEL, r.task_id, 0, path, 'started');
-    } else { tA(SEL, 'r', 'Failed to send run command'); }
-}
-
 async function fmUploadToTarget() {
     if (!SEL || !FM_PATH) { tm('Select a device and path first', 1); return; }
     const files = _fileCache || [];
@@ -513,7 +515,8 @@ async function fmDoUpload() {
     if (!sel) { tm('Select a file', 1); return; }
     const fid = sel.value;
     const name = document.getElementById('fm-utm-name').value.trim() || sel.dataset.name;
-    const targetPath = (FM_PATH === '/' ? '' : FM_PATH) + '/' + name;
+    const base = FM_PATH === '/' ? '' : FM_PATH.replace(/\/+$/, '');
+    const targetPath = base + '/' + name;
     document.getElementById('fm-utm').classList.remove('on');
     tA(SEL, 'g', '$ download ' + fid + ' ' + targetPath);
     tA(SEL, 's', 'Uploading to target...');
@@ -665,7 +668,10 @@ async function dc() {
     const inp = document.getElementById('tin');
     const cmd = inp.value.trim();
     if (!cmd || !SEL) { tm('Select a device', 1); return; }
+    if (cmd === 'clear' || cmd === 'cls') { clearTerminal(); return; }
     inp.value = '';
+    _hist.push(cmd); if (_hist.length > 100) _hist.shift();
+    _histIdx = _hist.length;
     tA(SEL, 'g', '$ ' + cmd);
     tA(SEL, 's', 'Sent, waiting for beacon...');
     const r = await ApiClient.post('task', { beacon_uuid: SEL, command: cmd });
@@ -673,7 +679,38 @@ async function dc() {
     else { if (TRMS[SEL] && TRMS[SEL].length && TRMS[SEL][TRMS[SEL].length - 1].t === 's') TRMS[SEL].pop(); tA(SEL, 'r', 'Failed to send command'); }
 }
 
+function tk(e) {
+    if (e.key === 'Enter') { dc(); return; }
+    if (e.key === 'ArrowUp') {
+        if (_histIdx > 0) { _histIdx--; document.getElementById('tin').value = _hist[_histIdx]; }
+        e.preventDefault();
+    } else if (e.key === 'ArrowDown') {
+        if (_histIdx < _hist.length - 1) { _histIdx++; document.getElementById('tin').value = _hist[_histIdx]; }
+        else { _histIdx = _hist.length; document.getElementById('tin').value = ''; }
+        e.preventDefault();
+    }
+}
+
+function clearTerminal() {
+    if (!SEL) return;
+    TRMS[SEL] = [{ t: 's', v: 'Terminal cleared.' }];
+    rT(SEL);
+}
+
 function qc(c) { if (!SEL) { tm('Select device', 1); return; } document.getElementById('tin').value = c; dc(); }
+
+async function cancelTask() {
+    if (!SEL) { tm('Select a device', 1); return; }
+    const tasks = await ApiClient.get('tasks', { beacon_uuid: SEL, status: 'pending' });
+    if (!tasks || !tasks.length) { tm('No pending tasks', 1); return; }
+    const last = tasks[0];
+    const r = await ApiClient.post('task_cancel', { id: last.id });
+    if (r && r.status === 'cancelled') {
+        if (TRMS[SEL] && TRMS[SEL].length && TRMS[SEL][TRMS[SEL].length - 1].t === 's') TRMS[SEL].pop();
+        tA(SEL, 'r', '[CANCELLED] Task #' + last.id + ' (' + last.command.substring(0, 40) + '...)');
+        tm('Task cancelled');
+    } else { tm('Failed to cancel', 1); }
+}
 
 function poll(u, tid, n) {
     let c = 0;
@@ -687,7 +724,7 @@ function poll(u, tid, n) {
             tA(u, 'w', out);
             const b = _beaconCache;
             if (b) buildList(b);
-            if (u === SEL) { await loadInfo(SEL); await loadBF(SEL); await loadBM(SEL); }
+            if (u === SEL) { await loadInfo(SEL); await loadBF(SEL); await loadBM(SEL); fmRefresh(); }
             if (out.startsWith('[MEDIA]')) { for (const ln of out.split('\n')) { const m = ln.replace('[MEDIA]', '').trim(); if (m) showM(m); } }
             try {
                 const j = JSON.parse(out);
@@ -733,37 +770,45 @@ function showM(id) {
     document.getElementById('mim').classList.add('on');
 }
 
-async function loadPersons() {
-    const ps = await ApiClient.get('persons');
-    if (!ps) return;
-    _personCache = ps;
-    document.getElementById('pcnt').textContent = '(' + ps.length + ')';
+function renderPersons(ps) {
     const el = document.getElementById('plist');
-    if (!ps.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:10px">No persons. Add one.</div>'; return; }
+    if (!ps || !ps.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:10px">No persons. Add one.</div>'; return; }
     el.innerHTML = '<div class="pr-cards">' + ps.map(p => {
-        const dc = p.linked_devices ? p.linked_devices.length : 0;
+        const dc = Array.isArray(p.linked_devices) ? p.linked_devices.length : 0;
         const av = p.photo ? '<img src="api.php?action=person_photo_get&id=' + p.id + '" class="pr-av-sm" onerror="this.outerHTML=\'<div class=\\\'pr-av-sm\\\' style=\\\'display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--surface)\\\'>\\&#128100;</div>\'">' : '<div class="pr-av-sm" style="display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--surface)">&#128100;</div>';
         const created = ((p.created_at || '').substring(5, 16) || '');
         const updated = ((p.updated_at || '').substring(5, 16) || '');
         const timeStr = created ? (updated !== created ? created + ' cr' : created) : '';
-        const handle = p.social ? (p.social.twitter || p.social.instagram || p.social.telegram || '') : '';
+        const social = Array.isArray(p.social) ? p.social : (typeof p.social === 'object' && p.social ? p.social : {});
+        const handle = Object.keys(social).length ? (social.twitter || social.instagram || social.telegram || '') : '';
         return '<div class="pr-card" onclick="openPerson(\'' + p.id + '\')">' + av + '<div class="pr-ci"><div class="pr-cn">' + es(p.name) + '</div><div class="pr-cs">' + (dc > 0 ? dc + ' device(s)' : '') + (handle ? ' <span style="opacity:.7">' + es(handle) + '</span>' : '') + (timeStr ? ' <span style="opacity:.5">| ' + timeStr + '</span>' : '') + '</div></div></div>';
     }).join('') + '</div>';
 }
+async function loadPersons() {
+    if (_personCache && _personCache.length) { renderPersons(_personCache); document.getElementById('pcnt').textContent = '(' + _personCache.length + ')'; }
+    const ps = await ApiClient.get('persons');
+    if (!ps) return;
+    _personCache = ps;
+    document.getElementById('pcnt').textContent = '(' + ps.length + ')';
+    renderPersons(ps);
+}
 
 async function openPerson(id) {
-    const p = await ApiClient.get('person', { id });
-    if (!p || !p.id) { tm('Person not found', 1); document.getElementById('pm').classList.remove('on'); return; }
-    const dc = p.linked_devices ? p.linked_devices.length : 0;
-    const beacons = _beaconCache;
-    const devHtml = p.linked_devices && p.linked_devices.length ? p.linked_devices.map(d => {
-        const b = beacons ? beacons.find(x => x.uuid === d) : null;
-        const nm = b ? es(b.nickname || b.hostname || b.uuid.substring(0, 8)) : d.substring(0, 8);
-        return '<span class="pr-dt" onclick="selB(\'' + d + '\')">' + nm + '<span class="pr-dx" onclick="event.stopPropagation();linkDevice(\'' + p.id + '\',\'' + d + '\',true)">&times;</span></span>';
-    }).join('') : '<span style="font-size:10px;color:var(--text2)">No devices linked</span>';
-    const av = p.photo ? '<img src="api.php?action=person_photo_get&id=' + p.id + '" class="pr-av" onerror="this.outerHTML=\'<div class=\\\'pr-av\\\' style=\\\'display:flex;align-items:center;justify-content:center;font-size:28px;border-radius:50%\\\'>&#128100;</div>\'">' : '<div class="pr-av" style="display:flex;align-items:center;justify-content:center;font-size:28px">&#128100;</div>';
-    const beaconsSel = beacons ? beacons.filter(x => !p.linked_devices || !p.linked_devices.includes(x.uuid)).map(x => '<option value="' + x.uuid + '">' + es(x.nickname || x.hostname || x.uuid.substring(0, 8)) + '</option>').join('') : '';
-    document.getElementById('pm-c').innerHTML = `<div style="padding:14px">
+    try {
+        const p = await ApiClient.get('person', { id });
+        if (!p || !p.id) { tm('Person not found', 1); document.getElementById('pm').classList.remove('on'); return; }
+        const devices = Array.isArray(p.linked_devices) ? p.linked_devices : [];
+        const social = Array.isArray(p.social) ? p.social : (typeof p.social === 'object' && p.social ? p.social : {});
+        const dc = devices.length;
+        const beacons = Array.isArray(_beaconCache) ? _beaconCache : [];
+        const devHtml = devices.length ? devices.map(d => {
+            const b = beacons.find(x => x.uuid === d);
+            const nm = b ? es(b.nickname || b.hostname || b.uuid.substring(0, 8)) : d.substring(0, 8);
+            return '<span class="pr-dt" onclick="selB(\'' + d + '\')">' + nm + '<span class="pr-dx" onclick="event.stopPropagation();linkDevice(\'' + p.id + '\',\'' + d + '\',true)">&times;</span></span>';
+        }).join('') : '<span style="font-size:10px;color:var(--text2)">No devices linked</span>';
+        const av = p.photo ? '<img src="api.php?action=person_photo_get&id=' + p.id + '" class="pr-av" onerror="this.outerHTML=\'<div class=\\\'pr-av\\\' style=\\\'display:flex;align-items:center;justify-content:center;font-size:28px;border-radius:50%\\\'>&#128100;</div>\'">' : '<div class="pr-av" style="display:flex;align-items:center;justify-content:center;font-size:28px">&#128100;</div>';
+        const beaconsSel = beacons.filter(x => !devices.includes(x.uuid)).map(x => '<option value="' + x.uuid + '">' + es(x.nickname || x.hostname || x.uuid.substring(0, 8)) + '</option>').join('');
+        document.getElementById('pm-c').innerHTML = `<div style="padding:14px">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
                 <div>
                     <b style="font-size:15px">&#128100; ${es(p.name)}</b>
@@ -785,29 +830,32 @@ async function openPerson(id) {
                     <div class="pd" style="font-size:11px">${p.notes ? es(p.notes) : '<span style="color:var(--text2)">No notes.</span>'}</div></div>
                 </div>
             </div>
-            ${p.social ? '<div style="margin-top:8px"><b style="font-size:10px;color:var(--text2)">&#128279; Social / Contact</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:4px;font-size:11px">' + Object.entries(p.social).filter(([,v])=>v).map(([k,v])=>{const icons={twitter:'&#120143;',instagram:'&#128247;',phone:'&#128222;',email:'&#9993;',telegram:'&#128172;',whatsapp:'&#128225;',signal:'&#128100;',facebook:'&#128262;'};const links={twitter:'https://twitter.com/',instagram:'https://instagram.com/',facebook:'https://facebook.com/',telegram:'https://t.me/',email:'mailto:',whatsapp:'https://wa.me/',phone:'tel:',signal:'https://signal.me/'};const icon=icons[k]||'&#128279;';const link=links[k]||'';const display=link&&k!=='email'&&k!=='phone'&&k!=='whatsapp'&&k!=='signal'?v.replace(/^@/,''):v;const href=link+(k==='email'||k==='phone'||k==='whatsapp'||k==='signal'?v.replace(/[^0-9+]/g,''):display);return '<span>'+icon+' <a href="'+href+'" target="_blank" style="color:var(--cyan)">'+es(v)+'</a></span>';}).join('')+'</div></div>' : ''}
+            ${Object.keys(social).length ? '<div style="margin-top:8px"><b style="font-size:10px;color:var(--text2)">&#128279; Social / Contact</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:4px;font-size:11px">' + Object.entries(social).filter(([,v])=>v).map(([k,v])=>{const icons={twitter:'&#120143;',instagram:'&#128247;',phone:'&#128222;',email:'&#9993;',telegram:'&#128172;',whatsapp:'&#128225;',signal:'&#128100;',facebook:'&#128262;'};const links={twitter:'https://twitter.com/',instagram:'https://instagram.com/',facebook:'https://facebook.com/',telegram:'https://t.me/',email:'mailto:',whatsapp:'https://wa.me/',phone:'tel:',signal:'https://signal.me/'};const icon=icons[k]||'&#128279;';const link=links[k]||'';const display=link&&k!=='email'&&k!=='phone'&&k!=='whatsapp'&&k!=='signal'?v.replace(/^@/,''):v;const href=link+(k==='email'||k==='phone'||k==='whatsapp'||k==='signal'?v.replace(/[^0-9+]/g,''):display);return '<span>'+icon+' <a href="'+href+'" target="_blank" style="color:var(--cyan)">'+es(v)+'</a></span>';}).join('')+'</div></div>' : ''}
             <div style="margin-top:8px"><b style="font-size:10px;color:var(--text2)">&#128268; Linked Devices</b>
             <div class="pr-dev">${devHtml}</div></div>
-            <div style="margin-top:6px;display:flex;gap:4px"><select id="pl-ds" style="flex:1"><option value="">${beaconsSel ? 'Link a device...' : 'No devices available'}</option>${beaconsSel || ''}</select>${beaconsSel ? '<button class="btn btn-xs btn-g" onclick="linkDeviceFromPerson(\'' + p.id + '\')">Link</button>' : ''}</div>
+            <div style="margin-top:6px;display:flex;gap:4px"><select id="pl-ds" style="flex:1"><option value="">${beaconsSel ? 'Link a device...' : 'No devices available'}</option>${beaconsSel}</select>${beaconsSel ? '<button class="btn btn-xs btn-g" onclick="linkDeviceFromPerson(\'' + p.id + '\')">Link</button>' : ''}</div>
             <div style="margin-top:8px"><b style="font-size:10px;color:var(--text2)">&#128247; Photo</b>
             <div style="margin-top:4px;display:flex;gap:4px"><input type="file" id="pf-upload" accept="image/*" style="flex:1;font-size:10px"><button class="btn btn-xs btn-b" onclick="uploadPersonPhoto('${p.id}')">Upload</button></div></div>
             <div style="margin-top:8px"><b style="font-size:10px;color:var(--text2)">&#128193; Files <span id="hf-cnt-${es(p.id)}"></span></b>
             <div id="hf-body-${es(p.id)}" style="font-size:10px;color:var(--text2);margin-top:4px">Loading...</div></div>
         </div>`;
-    document.getElementById('pm').classList.add('on');
-    (async () => {
-        const hf = await ApiClient.get('human_files', { id: p.id });
-        const hfe = document.getElementById('hf-body-' + p.id);
-        const hfc = document.getElementById('hf-cnt-' + p.id);
-        if (!hf || !hf.entries || !hf.entries.length) { hfe.innerHTML = '<span style="color:var(--text2)">No files.</span>'; hfc.textContent = ''; return; }
-        hfc.textContent = '(' + hf.entries.length + ')';
-        hfe.innerHTML = '<div style="display:flex;flex-direction:column;gap:2px">' + hf.entries.map(e => {
-            const icon = e.type === 'dir' ? '&#128193;' : '&#128196;';
-            const sz = e.size > 1024 ? (e.size / 1024).toFixed(1) + 'K' : e.size + 'B';
-            if (e.type === 'dir') return '<span style="color:var(--cyan)">' + icon + ' ' + es(e.name) + '</span>';
-            return '<span style="display:flex;justify-content:space-between"><span>' + icon + ' <a href="api.php?action=human_file_read&id=' + p.id + '&file=' + es(e.name) + '" target="_blank" style="color:var(--text)">' + es(e.name) + '</a></span><span style="color:var(--text2)">' + sz + '</span></span>';
-        }).join('') + '</div>';
-    })();
+        document.getElementById('pm').classList.add('on');
+        (async () => {
+            const hf = await ApiClient.get('human_files', { id: p.id });
+            const hfe = document.getElementById('hf-body-' + p.id);
+            const hfc = document.getElementById('hf-cnt-' + p.id);
+            if (!hf || !hf.entries || !hf.entries.length) { hfe.innerHTML = '<span style="color:var(--text2)">No files.</span>'; hfc.textContent = ''; return; }
+            hfc.textContent = '(' + hf.entries.length + ')';
+            hfe.innerHTML = '<div style="display:flex;flex-direction:column;gap:2px">' + hf.entries.map(e => {
+                const icon = e.type === 'dir' ? '&#128193;' : '&#128196;';
+                const sz = e.size > 1024 ? (e.size / 1024).toFixed(1) + 'K' : e.size + 'B';
+                if (e.type === 'dir') return '<span style="color:var(--cyan)">' + icon + ' ' + es(e.name) + '</span>';
+                return '<span style="display:flex;justify-content:space-between"><span>' + icon + ' <a href="api.php?action=human_file_read&id=' + p.id + '&file=' + es(e.name) + '" target="_blank" style="color:var(--text)">' + es(e.name) + '</a></span><span style="color:var(--text2)">' + sz + '</span></span>';
+            }).join('') + '</div>';
+        })();
+    } catch (e) {
+        tm('Error: ' + (e.message || e), 1);
+    }
 }
 
 function personForm(id) {

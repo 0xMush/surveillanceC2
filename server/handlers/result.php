@@ -18,7 +18,10 @@ function handleResult(): void {
             $path = trim(substr($task['command'], 7));
             $parsed = json_decode($output, true);
             if ($parsed && isset($parsed['files'])) {
-                $entries = json_encode($parsed['files']); $n = now();
+                $files = $parsed['files'];
+                // Normalize to array (PS beacon returns scalar for single-item dirs)
+                if (is_array($files) && array_keys($files) !== range(0, count($files)-1)) $files = [$files];
+                $entries = json_encode($files); $n = now();
                 $ex = $db->findFirst('browse_cache', ['beacon_uuid' => $uuid, 'path' => $path]);
                 if ($ex) $db->update('browse_cache', 'id', $ex['id'], ['entries' => $entries, 'updated_at' => $n]);
                 else $db->insert('browse_cache', ['beacon_uuid' => $uuid, 'path' => $path, 'entries' => $entries, 'updated_at' => $n]);
