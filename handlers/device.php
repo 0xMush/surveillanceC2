@@ -103,11 +103,12 @@ function handleTerminal(): void {
     if (empty($uuid)) jsonError('Missing beacon_uuid');
     $db = DB::connect();
     $tasks = $db->findAll('tasks', ['beacon_uuid' => $uuid]);
+    usort($tasks, fn($a, $b) => strcmp($a['created_at'] ?? '', $b['created_at'] ?? ''));
+    $tasks = array_slice($tasks, -100);
     $results = $db->findAll('results', ['beacon_uuid' => $uuid]);
     $resultMap = [];
     foreach ($results as $r) $resultMap[$r['task_id']] = $r;
     $history = [];
-    usort($tasks, fn($a, $b) => strcmp($a['created_at'] ?? '', $b['created_at'] ?? ''));
     foreach ($tasks as $t) {
         $out = '';
         if (isset($resultMap[$t['id']])) $out = $resultMap[$t['id']]['output'] ?? '';

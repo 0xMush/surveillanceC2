@@ -38,10 +38,11 @@ function handleBrowseRequest(): void {
     $uuid = trim($input['beacon_uuid'] ?? '');
     $path = $input['path'] ?? 'C:\\';
     if (empty($uuid)) jsonError('Missing beacon_uuid');
+    $cmd = $path === '/' ? 'drives' : 'browse ' . $path;
     $db = DB::connect();
     $id = $db->insert('tasks', [
         'beacon_uuid' => $uuid,
-        'command' => 'browse ' . $path,
+        'command' => $cmd,
         'status' => 'pending',
         'created_at' => now(),
         'assigned_at' => null,

