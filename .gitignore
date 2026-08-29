@@ -1,0 +1,17 @@
+# Secrets
+.env
+
+# Runtime data
+data/
+uploads/
+devices/
+humans/
+
+# OS junk
+Thumbs.db
+.DS_Store
+
+# Compiled payloads
+*.exe
+*.o
+*.pyc
