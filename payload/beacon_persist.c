@@ -16,10 +16,10 @@
 
 // ====== COMPILE-TIME CONFIG ======
 // EDIT THESE: your server URL and BEACON_SECRET
-#define CFG_HOST "78.138.51.112"
+#define CFG_HOST "YOUR_SERVER_IP"
 #define CFG_PORT 8080
 #define CFG_PATH "/api.php"
-#define CFG_SECRET "a021a3c72d1b4b093c1740177acc96f5346f56c824717773ec896a2a33fc2a5b"
+#define CFG_SECRET "CHANGE_ME_TO_64_HEX_CHARS"
 #define CFG_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 // ====== OBFUSCATION ======
