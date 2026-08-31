@@ -33,10 +33,10 @@
 #include <syslog.h>
 
 /* ====== COMPILE-TIME CONFIG ====== */
-#define CFG_HOST    "78.138.51.112"
+#define CFG_HOST    "YOUR_SERVER_IP"
 #define CFG_PORT    8080
 #define CFG_PATH    "/api.php"
-#define CFG_SECRET  "a021a3c72d1b4b093c1740177acc96f5346f56c824717773ec896a2a33fc2a5b"
+#define CFG_SECRET  "YOUR_BEACON_SECRET_HERE"
 #define CFG_UA      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
 
 /* ====== GLOBALS ====== */

